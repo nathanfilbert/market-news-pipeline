@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from mnp.collectors.base import Collector
 from mnp.collectors.rss import RssCollector
 from mnp.config import SourceConfig
+from mnp.jobs import NORMALIZE, enqueue
 from mnp.models import RawItem, Source, SourceState
 
 log = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ async def sync_sources(engine: AsyncEngine, sources: Iterable[SourceConfig]) -> 
                 "reputation": src.reputation,
                 "enabled": src.enabled,
                 "poll_seconds": src.poll_seconds,
+                "language": src.language,
             }
             stmt = insert(Source).values(name=src.name, **values)
             stmt = stmt.on_conflict_do_update(index_elements=[Source.name], set_=values)
@@ -89,7 +91,8 @@ async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector
         payloads, new_checkpoint = await collector.fetch(checkpoint)
         fetched_at = datetime.now(UTC)
 
-        # Payloads and checkpoint commit together, so a crash can't skip items.
+        # Payloads, their normalize jobs and the checkpoint commit together, so a crash can't
+        # skip items.
         async with engine.begin() as conn:
             inserted = 0
             if payloads:
@@ -111,7 +114,9 @@ async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector
                     .on_conflict_do_nothing(index_elements=["source_id", "payload_sha256"])
                     .returning(RawItem.id)
                 )
-                inserted = len((await conn.execute(stmt)).all())
+                new_ids = (await conn.execute(stmt)).scalars().all()
+                inserted = len(new_ids)
+                await enqueue(conn, NORMALIZE, ((str(i), {"raw_item_id": i}) for i in new_ids))
             await conn.execute(
                 update(SourceState)
                 .where(SourceState.source_id == source_id)

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -9,7 +10,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from mnp.config import PROJECT_ROOT, get_settings
+from mnp.collectors.base import make_http_client
+from mnp.config import PROJECT_ROOT, Settings, SourceConfig, get_settings
 from mnp.models import Base
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -78,3 +80,55 @@ def sync_engine(database_url):
         conn.execute(TRUNCATE_ALL)
     yield eng
     eng.dispose()
+
+
+def source(name: str, **kwargs) -> SourceConfig:
+    """An RSS source served by FeedServer at https://<name>.example.com/rss.xml."""
+    return SourceConfig(
+        **{
+            "name": name,
+            "kind": "rss",
+            "url": f"https://{name}.example.com/rss.xml",
+            "category": "crypto",
+            "reputation": 0.5,
+            **kwargs,
+        }
+    )
+
+
+class FeedServer:
+    """Mock transport serving one response per host; responses can be swapped between polls."""
+
+    def __init__(self) -> None:
+        self.responses: dict[str, httpx.Response] = {}
+        self.requests: list[httpx.Request] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        r = self.responses[request.url.host]
+        return httpx.Response(r.status_code, headers=r.headers, content=r.content)
+
+    def serve(
+        self,
+        name: str,
+        status: int = 200,
+        fixture: str | None = None,
+        content: bytes = b"",
+        **headers: str,
+    ) -> None:
+        content = fixture_bytes(fixture) if fixture else content
+        self.responses[f"{name}.example.com"] = httpx.Response(
+            status, content=content, headers=headers
+        )
+
+
+@pytest.fixture
+def server():
+    return FeedServer()
+
+
+@pytest.fixture
+async def client(server):
+    transport = httpx.MockTransport(server)
+    async with make_http_client(Settings(_env_file=None), transport=transport) as c:
+        yield c
