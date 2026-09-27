@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xml:base="https://regulator.example.gov/">
+  <channel><title>Relative links</title><link>https://regulator.example.gov/</link>
+  <description>Synthetic fixture: item links relative to xml:base</description>
+  <item>
+    <title>Regulator adopts rule amendments</title>
+    <link>/newsroom/press-releases/2026-101?utm_source=rss#top</link>
+    <guid isPermaLink="false">2026-101</guid>
+    <pubDate>Fri, 25 Sep 2026 14:05:00 -0400</pubDate>
+    <description>&lt;p&gt;The regulator &lt;b&gt;adopted&lt;/b&gt; amendments &amp;amp; guidance.&lt;/p&gt;</description>
+  </item>
+  </channel>
+</rss>

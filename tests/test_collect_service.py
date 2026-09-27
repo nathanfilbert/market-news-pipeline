@@ -7,59 +7,12 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 
 from mnp.collectors import service
-from mnp.collectors.base import make_http_client
 from mnp.collectors.rss import RssCollector
 from mnp.collectors.service import collect_once, next_delay, run_source_loop, sync_sources
-from mnp.config import Settings, SourceConfig
 from mnp.models import RawItem, Source, SourceState
-from tests.conftest import fixture_bytes
+from tests.conftest import fixture_bytes, source
 
 pytestmark = pytest.mark.db
-
-
-def source(name: str, **kwargs) -> SourceConfig:
-    return SourceConfig(
-        name=name,
-        kind="rss",
-        url=f"https://{name}.example.com/rss.xml",
-        category="crypto",
-        reputation=0.5,
-        **kwargs,
-    )
-
-
-class FeedServer:
-    """Mock transport serving one response per host; responses can be swapped between polls."""
-
-    def __init__(self) -> None:
-        self.responses: dict[str, httpx.Response] = {}
-        self.requests: list[httpx.Request] = []
-
-    def __call__(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request)
-        response = self.responses[request.url.host]
-        return httpx.Response(
-            response.status_code, headers=response.headers, content=response.content
-        )
-
-    def serve(self, name: str, status: int = 200, fixture: str | None = None, **headers) -> None:
-        content = fixture_bytes(fixture) if fixture else b""
-        self.responses[f"{name}.example.com"] = httpx.Response(
-            status, content=content, headers=headers
-        )
-
-
-@pytest.fixture
-def server():
-    return FeedServer()
-
-
-@pytest.fixture
-async def client(server):
-    async with make_http_client(
-        Settings(_env_file=None), transport=httpx.MockTransport(server)
-    ) as c:
-        yield c
 
 
 async def count_raw(engine, source_id=None) -> int:

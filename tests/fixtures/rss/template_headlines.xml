@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"><channel><title>Example Central Bank</title><link>https://bank.example.gov/</link>
+<description>Synthetic fixture: distinct events sharing a headline template</description>
+<item>
+  <title>Example Central Bank announces approval of application by Alpha Bancorp Inc.</title>
+  <link>https://bank.example.gov/press/orders-alpha.htm</link>
+  <guid>orders-alpha</guid>
+</item>
+<item>
+  <title>Example Central Bank announces approval of application by Beta Bancorp Inc.</title>
+  <link>https://bank.example.gov/press/orders-beta.htm</link>
+  <guid>orders-beta</guid>
+</item>
+</channel></rss>

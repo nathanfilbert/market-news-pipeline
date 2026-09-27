@@ -155,6 +155,23 @@ def split_feed(data: bytes) -> list[FeedItem]:
     return items
 
 
+def item_payload(item: FeedItem, *, feed_url: str, http: dict[str, Any]) -> RawPayload:
+    return RawPayload(
+        payload={
+            "format": "xml_item",
+            "xml": item.text,
+            "encoding": item.encoding,
+            "namespaces": item.namespaces,
+            "xml_base": item.xml_base,
+            "feed_url": feed_url,
+            "http": http,
+        },
+        payload_sha256=hashlib.sha256(item.raw).hexdigest(),
+        external_id=item.external_id,
+        url=item.link,
+    )
+
+
 class RssCollector(Collector):
     async def fetch(self, checkpoint: Mapping[str, Any]) -> tuple[list[RawPayload], dict[str, Any]]:
         headers = {"Accept": ACCEPT}
@@ -175,20 +192,7 @@ class RssCollector(Collector):
             "last_modified": response.headers.get("last-modified"),
         }
         payloads = [
-            RawPayload(
-                payload={
-                    "format": "xml_item",
-                    "xml": item.text,
-                    "encoding": item.encoding,
-                    "namespaces": item.namespaces,
-                    "xml_base": item.xml_base,
-                    "feed_url": str(response.url),
-                    "http": http,
-                },
-                payload_sha256=hashlib.sha256(item.raw).hexdigest(),
-                external_id=item.external_id,
-                url=item.link,
-            )
+            item_payload(item, feed_url=str(response.url), http=http)
             for item in split_feed(response.content)
         ]
         new_checkpoint = {

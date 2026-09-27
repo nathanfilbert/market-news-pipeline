@@ -6,7 +6,7 @@ import signal
 from typing import Annotated
 
 import typer
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from mnp import __version__
 from mnp.collectors.base import make_http_client
@@ -18,6 +18,9 @@ from mnp.collectors.service import (
 )
 from mnp.config import get_settings, load_sources
 from mnp.db import make_engine
+from mnp.jobs import NORMALIZE, run_pending
+from mnp.models import Article, ArticleVersion, Cluster
+from mnp.normalize.service import handle_normalize_job
 
 app = typer.Typer(no_args_is_help=True, help="Market news pipeline.")
 
@@ -118,6 +121,47 @@ async def _collect(configs, selected, once: bool) -> bool:
             return True
     finally:
         await engine.dispose()
+
+
+@app.command()
+def normalize(
+    limit: Annotated[int | None, typer.Option(help="Stop after this many jobs.")] = None,
+) -> None:
+    """Process pending normalize jobs: raw items -> articles, versions, clusters."""
+    _setup_logging()
+    ok = asyncio.run(_normalize(limit))
+    if not ok:
+        raise typer.Exit(1)
+
+
+async def _normalize(limit: int | None) -> bool:
+    engine = make_engine()
+
+    async def counts() -> tuple[int, int, int]:
+        async with engine.connect() as conn:
+            row = (
+                await conn.execute(
+                    select(
+                        select(func.count()).select_from(Article).scalar_subquery(),
+                        select(func.count()).select_from(ArticleVersion).scalar_subquery(),
+                        select(func.count()).select_from(Cluster).scalar_subquery(),
+                    )
+                )
+            ).one()
+            return tuple(row)
+
+    try:
+        before = await counts()
+        stats = await run_pending(engine, NORMALIZE, handle_normalize_job, limit=limit)
+        after = await counts()
+    finally:
+        await engine.dispose()
+    articles, versions, clusters = (a - b for a, b in zip(after, before, strict=True))
+    typer.echo(
+        f"normalize: {stats.done} done, {stats.retrying} retrying, {stats.failed} failed; "
+        f"+{articles} articles, +{versions} versions, +{clusters} clusters"
+    )
+    return stats.retrying == 0 and stats.failed == 0
 
 
 if __name__ == "__main__":

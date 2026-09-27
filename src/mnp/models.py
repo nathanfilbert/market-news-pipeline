@@ -10,6 +10,7 @@ from sqlalchemy import (
     Double,
     ForeignKey,
     Identity,
+    Index,
     MetaData,
     Text,
     UniqueConstraint,
@@ -46,6 +47,8 @@ class Source(Base):
     reputation: Mapped[float] = mapped_column(Double)
     enabled: Mapped[bool] = mapped_column(server_default=text("true"))
     poll_seconds: Mapped[int]
+    # Used for articles whose item doesn't declare a language.
+    language: Mapped[str] = mapped_column(Text, server_default=text("'en'"))
 
 
 class SourceState(Base):
@@ -76,3 +79,83 @@ class RawItem(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     # Hex sha256 of the raw bytes as received (for RSS: the item's bytes in the feed).
     payload_sha256: Mapped[str] = mapped_column(Text)
+
+
+class Cluster(Base):
+    """Near-duplicate story group (see mnp.normalize.cluster)."""
+
+    __tablename__ = "clusters"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    first_seen_at: Mapped[datetime] = mapped_column(Timestamp)
+    representative_article_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("articles.id", use_alter=True),  # FK added after articles exists
+    )
+
+
+class Article(Base):
+    __tablename__ = "articles"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    canonical_url: Mapped[str] = mapped_column(Text, unique=True)
+    first_seen_at: Mapped[datetime] = mapped_column(Timestamp)
+    cluster_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("clusters.id"), index=True
+    )
+
+
+class ArticleVersion(Base):
+    __tablename__ = "article_versions"
+    __table_args__ = (
+        UniqueConstraint("article_id", "content_hash"),
+        UniqueConstraint("article_id", "version_no"),
+        Index(
+            "ix_article_versions_headline_trgm",
+            "headline",
+            postgresql_using="gin",
+            postgresql_ops={"headline": "gin_trgm_ops"},
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    article_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("articles.id"))
+    version_no: Mapped[int]
+    # sha256 of normalized headline + summary + body + canonical_url (mnp.normalize.hashing).
+    content_hash: Mapped[str] = mapped_column(Text)
+    headline: Mapped[str] = mapped_column(Text)
+    summary: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    author: Mapped[str | None] = mapped_column(Text)
+    language: Mapped[str] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(Timestamp)  # from the source, as given
+    received_at: Mapped[datetime] = mapped_column(Timestamp)  # when we fetched this content
+    raw_item_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("raw_items.id"), index=True)
+
+
+class Job(Base):
+    """Work queue between stages, consumed with SELECT … FOR UPDATE SKIP LOCKED."""
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        UniqueConstraint("kind", "dedupe_key"),
+        CheckConstraint("status IN ('pending', 'done', 'failed')", name="status_valid"),
+        Index(
+            "ix_jobs_pending",
+            "kind",
+            "run_after",
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    kind: Mapped[str] = mapped_column(Text)
+    dedupe_key: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'pending'"))
+    attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    run_after: Mapped[datetime] = mapped_column(Timestamp, server_default=text("now()"))
+    locked_at: Mapped[datetime | None] = mapped_column(Timestamp)  # start of the latest attempt
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(Timestamp, server_default=text("now()"))
+    finished_at: Mapped[datetime | None] = mapped_column(Timestamp)

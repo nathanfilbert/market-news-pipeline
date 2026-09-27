@@ -22,4 +22,11 @@ uv run mnp collect --source coindesk --once # one source
 uv run mnp collect                          # poll continuously until Ctrl-C
 ```
 
+Each new raw item queues a normalize job. Process the queue into articles, versions and
+clusters:
+
+```bash
+uv run mnp normalize
+```
+
 Tests use a separate `mnp_test` database, created and migrated automatically.

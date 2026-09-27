@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Included in the User-Agent; SEC and BLS ask automated clients to identify themselves.
     contact_email: str | None = None
     log_level: str = "INFO"
+    # Near-duplicate clustering (docs/v1-plan.md §5).
+    cluster_similarity_threshold: float = Field(default=0.6, gt=0, le=1)
+    cluster_window_hours: float = Field(default=48, gt=0)
     config_dir: Path = PROJECT_ROOT / "config"
 
 
@@ -36,6 +39,7 @@ class SourceConfig(BaseModel):
     category: str
     reputation: float = Field(ge=0, le=1)
     enabled: bool = True
+    language: str = "en"  # default for items that don't declare one
 
 
 def load_yaml(path: Path) -> Any:
