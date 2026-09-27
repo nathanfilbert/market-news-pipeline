@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0">
+    <channel>
+        <title>Example Central Bank: Press Releases</title>
+        <link><![CDATA[https://bank.example.gov/feeds.htm]]></link>
+        <description><![CDATA[Synthetic fixture modelled on a central bank feed]]></description>
+        <item>
+            <title>Example Central Bank issues policy statement</title>
+            <link><![CDATA[https://bank.example.gov/press/monetary20260927a.htm]]></link>
+            <guid><![CDATA[https://bank.example.gov/press/monetary20260927a.htm]]></guid>
+            <description><![CDATA[Policy statement]]></description>
+            <category><![CDATA[Monetary Policy]]></category>
+            <pubDate>Sun, 27 Sep 2026 18:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Example Central Bank announces approval of application</title>
+            <link><![CDATA[https://bank.example.gov/press/orders20260926a.htm]]></link>
+            <guid><![CDATA[https://bank.example.gov/press/orders20260926a.htm]]></guid>
+            <description><![CDATA[Orders on banking applications]]></description>
+            <pubDate>Sat, 26 Sep 2026 20:30:00 GMT</pubDate>
+        </item>
+    </channel>
+</rss>

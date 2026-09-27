@@ -1,21 +1,32 @@
 import pytest
-from alembic.config import Config
-from alembic.script import ScriptDirectory
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
 from sqlalchemy import text
 
-from mnp.config import PROJECT_ROOT
+from mnp.models import Base
+from tests.conftest import alembic_config
 
 pytestmark = pytest.mark.db
 
 
-def test_migrated_to_head(db_engine):
-    head = ScriptDirectory.from_config(Config(PROJECT_ROOT / "alembic.ini")).get_current_head()
-    with db_engine.connect() as conn:
-        current = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert current == head
+def test_migrations_downgrade_and_upgrade(database_url):
+    cfg = alembic_config(database_url)
+    command.downgrade(cfg, "base")
+    command.upgrade(cfg, "head")
 
 
-def test_pg_trgm_enabled(db_engine):
-    with db_engine.connect() as conn:
-        sim = conn.execute(text("SELECT similarity('bitcoin etf', 'bitcoin etfs')")).scalar_one()
+async def test_models_match_migrations(engine):
+    async with engine.connect() as conn:
+        diff = await conn.run_sync(
+            lambda sync_conn: compare_metadata(MigrationContext.configure(sync_conn), Base.metadata)
+        )
+    assert diff == []
+
+
+async def test_pg_trgm_enabled(engine):
+    async with engine.connect() as conn:
+        sim = (
+            await conn.execute(text("SELECT similarity('bitcoin etf', 'bitcoin etfs')"))
+        ).scalar()
     assert sim > 0.6

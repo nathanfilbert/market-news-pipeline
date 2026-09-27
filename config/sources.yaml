@@ -1,9 +1,67 @@
-# News sources. See docs/v1-plan.md §4. Verify each URL before adding it (M1).
+# News sources (docs/v1-plan.md §4). Each URL was fetched and parsed successfully on
+# 2026-09-27 before being added. reputation (0-1) is our prior, used downstream.
 #
-# - name: coindesk
-#   kind: rss
-#   url: https://...
-#   poll_seconds: 60
-#   category: crypto
-#   reputation: 0.9
-[]
+# category: crypto | official | markets
+
+# --- Crypto ---
+- name: coindesk
+  kind: rss
+  url: https://www.coindesk.com/arc/outboundfeeds/rss
+  poll_seconds: 60
+  category: crypto
+  reputation: 0.85
+
+- name: cointelegraph
+  kind: rss
+  url: https://cointelegraph.com/rss
+  poll_seconds: 60
+  category: crypto
+  reputation: 0.7
+
+- name: theblock
+  kind: rss
+  url: https://www.theblock.co/rss.xml
+  poll_seconds: 60
+  category: crypto
+  reputation: 0.85
+
+- name: decrypt
+  kind: rss
+  url: https://decrypt.co/feed
+  poll_seconds: 90
+  category: crypto
+  reputation: 0.75
+
+# --- Official / macro ---
+- name: fed_press
+  kind: rss
+  url: https://www.federalreserve.gov/feeds/press_all.xml
+  poll_seconds: 120
+  category: official
+  reputation: 1.0
+
+- name: sec_press
+  kind: rss
+  url: https://www.sec.gov/news/pressreleases.rss
+  poll_seconds: 120
+  category: official
+  reputation: 1.0
+
+# BLS returns 403 to automated clients without contact details in the User-Agent.
+# Set CONTACT_EMAIL in .env, confirm the feed loads, then enable.
+- name: bls_latest
+  kind: rss
+  url: https://www.bls.gov/feed/bls_latest.rss
+  poll_seconds: 300
+  category: official
+  reputation: 1.0
+  enabled: false
+
+# --- General markets ---
+# Usage terms not yet reviewed: check CNBC's Terms of Service before relying on this feed.
+- name: cnbc_markets
+  kind: rss
+  url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258
+  poll_seconds: 120
+  category: markets
+  reputation: 0.8

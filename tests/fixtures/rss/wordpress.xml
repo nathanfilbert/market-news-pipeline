@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+	<title>Example Crypto News</title>
+	<atom:link href="https://news.example.com/rss.xml" rel="self" type="application/rss+xml" />
+	<link>https://news.example.com</link>
+	<description>Synthetic fixture modelled on a WordPress crypto feed</description>
+	<item>
+		<title><![CDATA[Example Exchange lists ‘TOKEN’ perpetuals — trading opens today]]></title>
+		<link>https://news.example.com/markets/2026/09/27/example-exchange-lists-token</link>
+		<media:content url="https://cdn.example.com/img/1.jpg" medium="image" />
+		<dc:creator><![CDATA[Jane Doe]]></dc:creator>
+		<pubDate>Sun, 27 Sep 2026 12:00:00 +0000</pubDate>
+		<category><![CDATA[Markets]]></category>
+		<guid isPermaLink="false">https://news.example.com/?p=1001</guid>
+		<description><![CDATA[<p>Example Exchange said it will list TOKEN perpetual futures &amp; spot pairs.</p>]]></description>
+		<content:encoded><![CDATA[<p>Full body text for the listing story.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title><![CDATA[Protocol X patches bug after $12M exploit]]></title>
+		<link>https://news.example.com/tech/2026/09/27/protocol-x-exploit</link>
+		<dc:creator><![CDATA[John Roe]]></dc:creator>
+		<pubDate>Sun, 27 Sep 2026 11:30:00 +0000</pubDate>
+		<guid isPermaLink="false">https://news.example.com/?p=1002</guid>
+		<description><![CDATA[Attackers drained funds from a lending pool.]]></description>
+	</item>
+	<item>
+		<title>Opinion: why fees matter</title>
+		<link>https://news.example.com/opinion/2026/09/26/fees</link>
+		<pubDate>Sat, 26 Sep 2026 09:00:00 +0000</pubDate>
+		<guid isPermaLink="false">https://news.example.com/?p=1003</guid>
+		<description>A look at fee markets.</description>
+	</item>
+</channel>
+</rss>

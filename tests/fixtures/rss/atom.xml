@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Atom Feed</title>
+  <id>urn:example:feed</id>
+  <updated>2026-09-27T12:00:00Z</updated>
+  <entry>
+    <title>Stablecoin issuer mints 1B new tokens</title>
+    <id>urn:example:entry:1</id>
+    <link rel="alternate" type="text/html" href="https://atom.example.com/posts/1"/>
+    <link rel="enclosure" href="https://atom.example.com/posts/1.mp3"/>
+    <updated>2026-09-27T12:00:00Z</updated>
+    <summary type="html">&lt;p&gt;Minting details&lt;/p&gt;</summary>
+    <author><name>A. Writer</name></author>
+  </entry>
+  <entry>
+    <title>Second entry without rel attribute</title>
+    <id>urn:example:entry:2</id>
+    <link href="https://atom.example.com/posts/2"/>
+    <updated>2026-09-27T11:00:00Z</updated>
+  </entry>
+</feed>

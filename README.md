@@ -13,3 +13,13 @@ uv run alembic upgrade head
 uv run pytest
 uv run mnp check
 ```
+
+Collect news into `raw_items` (sources are configured in `config/sources.yaml`):
+
+```bash
+uv run mnp collect --once                   # poll every enabled source once
+uv run mnp collect --source coindesk --once # one source
+uv run mnp collect                          # poll continuously until Ctrl-C
+```
+
+Tests use a separate `mnp_test` database, created and migrated automatically.

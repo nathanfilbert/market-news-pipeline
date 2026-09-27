@@ -1,12 +1,9 @@
-"""Database engine and connection helpers."""
+"""Database engine helpers."""
 
-from functools import lru_cache
-
-from sqlalchemy import Engine, create_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from mnp.config import get_settings
 
 
-@lru_cache
-def get_engine() -> Engine:
-    return create_engine(get_settings().database_url, pool_pre_ping=True)
+def make_engine(url: str | None = None) -> AsyncEngine:
+    return create_async_engine(url or get_settings().database_url, pool_pre_ping=True)
