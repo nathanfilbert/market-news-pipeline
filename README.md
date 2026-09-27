@@ -33,4 +33,14 @@ clusters:
 uv run mnp normalize
 ```
 
+Each new article version queues a classify job. Classify with Jev (needs `JEV_API_KEY`):
+
+```bash
+uv run mnp classify --show                  # process the queue, print results for review
+uv run mnp reclassify --question-set v1.1 --since 2026-10-01
+```
+
+Questions live in `config/questions/<version>.yaml`; change wording only in a new version, which
+`reclassify` runs side by side with the old one. Taggable assets live in `config/assets.yaml`.
+
 Tests use a separate `mnp_test` database, created and migrated automatically.

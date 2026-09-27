@@ -8,6 +8,7 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from mnp.classify.service import enqueue_classify
 from mnp.config import Settings, get_settings
 from mnp.jobs import PermanentJobError
 from mnp.models import Article, ArticleVersion, RawItem, Source
@@ -100,21 +101,26 @@ async def normalize_raw_item(
             )
         )
     ).scalar_one()
-    await conn.execute(
-        insert(ArticleVersion).values(
-            article_id=article_id,
-            version_no=version_no,
-            content_hash=chash,
-            headline=headline,
-            summary=parsed.summary,
-            body=parsed.body,
-            author=parsed.author,
-            language=parsed.language or raw.language,
-            published_at=parsed.published_at,
-            received_at=raw.fetched_at,
-            raw_item_id=raw_item_id,
+    version_id = (
+        await conn.execute(
+            insert(ArticleVersion)
+            .values(
+                article_id=article_id,
+                version_no=version_no,
+                content_hash=chash,
+                headline=headline,
+                summary=parsed.summary,
+                body=parsed.body,
+                author=parsed.author,
+                language=parsed.language or raw.language,
+                published_at=parsed.published_at,
+                received_at=raw.fetched_at,
+                raw_item_id=raw_item_id,
+            )
+            .returning(ArticleVersion.id)
         )
-    )
+    ).scalar_one()
+    await enqueue_classify(conn, [version_id], settings.question_set)
 
     cluster_id = None
     if new_article:

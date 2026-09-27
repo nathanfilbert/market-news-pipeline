@@ -1,3 +1,5 @@
+import shutil
+
 import httpx
 import pytest
 from sqlalchemy import func, select
@@ -5,9 +7,9 @@ from typer.testing import CliRunner
 
 from mnp import __version__, cli
 from mnp.collectors import base
-from mnp.config import get_settings
-from mnp.models import RawItem
-from tests.conftest import fixture_bytes
+from mnp.config import PROJECT_ROOT, get_settings
+from mnp.models import Classification, RawItem
+from tests.conftest import fixture_bytes, jev_response
 
 runner = CliRunner()
 
@@ -21,6 +23,8 @@ def test_version():
 @pytest.fixture
 def cli_env(tmp_path, monkeypatch, database_url):
     """Point the CLI at the test database, a temp sources.yaml, and a mock feed server."""
+    shutil.copytree(PROJECT_ROOT / "config" / "questions", tmp_path / "questions")
+    shutil.copy(PROJECT_ROOT / "config" / "assets.yaml", tmp_path / "assets.yaml")
     (tmp_path / "sources.yaml").write_text(
         """
 - {name: good, kind: rss, url: "https://good.example.com/rss", category: crypto, reputation: 1}
@@ -38,11 +42,18 @@ def cli_env(tmp_path, monkeypatch, database_url):
             return httpx.Response(502)
         return httpx.Response(200, content=fixture_bytes("rss/wordpress.xml"))
 
+    def handler_with_jev(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.typesafe.ai":
+            return jev_response(request)
+        return handler(request)
+
     real = base.make_http_client
     monkeypatch.setattr(
-        cli, "make_http_client", lambda s: real(s, transport=httpx.MockTransport(handler))
+        cli,
+        "make_http_client",
+        lambda s: real(s, transport=httpx.MockTransport(handler_with_jev)),
     )
-    yield
+    yield tmp_path
     get_settings.cache_clear()
 
 
@@ -75,3 +86,35 @@ def test_collect_unknown_source(cli_env):
     result = runner.invoke(cli.app, ["collect", "--once", "--source", "nope"])
     assert result.exit_code == 2
     assert "unknown source(s): nope" in result.output
+
+
+@pytest.mark.db
+def test_classify_requires_jev_key(cli_env, sync_engine, monkeypatch):
+    monkeypatch.setenv("JEV_API_KEY", "")
+    get_settings.cache_clear()
+    result = runner.invoke(cli.app, ["classify"])
+    assert result.exit_code == 2
+    assert "JEV_API_KEY is not set" in result.output
+
+
+@pytest.mark.db
+def test_collect_normalize_classify_show(cli_env, sync_engine, monkeypatch):
+    monkeypatch.setenv("JEV_API_KEY", "sk-test")
+    monkeypatch.setenv("CONFIG_DIR", str(cli_env))
+    get_settings.cache_clear()
+    runner.invoke(cli.app, ["collect", "--once", "--source", "good"])
+    runner.invoke(cli.app, ["normalize"])
+    result = runner.invoke(cli.app, ["classify", "--show"])
+
+    assert result.exit_code == 0, result.output
+    assert "classify: 3 done, 0 retrying, 0 failed; 3 new classifications" in result.stdout
+    assert "[good] Protocol X patches bug after $12M exploit" in result.stdout
+    assert "jev-1.13.0" in result.stdout
+    with sync_engine.connect() as conn:
+        assert conn.execute(select(func.count()).select_from(Classification)).scalar() == 3
+
+
+def test_reclassify_rejects_unknown_question_set(cli_env):
+    result = runner.invoke(cli.app, ["reclassify", "--question-set", "v9.9"])
+    assert result.exit_code == 2
+    assert "question set 'v9.9' not found" in result.output
