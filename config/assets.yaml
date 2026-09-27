@@ -104,7 +104,7 @@
 - {symbol: OP, name: Optimism, kind: crypto, aliases: [Optimism Foundation, OP Mainnet], exact: [Optimism], ambiguous: true}
 - {symbol: STX, name: Stacks, kind: crypto, aliases: [Stacks blockchain], exact: [Stacks]}
 - {symbol: ETHFI, name: Ether.fi, kind: crypto, aliases: [Ether.fi]}
-- {symbol: STRK, name: Starknet, kind: crypto, aliases: [Starknet]}
+- {symbol: STRK, name: Starknet, kind: crypto, aliases: [Starknet], ambiguous: true}  # also a Strategy preferred-stock ticker
 - {symbol: JTO, name: Jito, kind: crypto, aliases: [Jito]}
 - {symbol: SUN, name: Sun Token, kind: crypto, aliases: [Sun Token], ambiguous: true}
 - {symbol: KITE, name: Kite, kind: crypto, aliases: [Kite AI], ambiguous: true}

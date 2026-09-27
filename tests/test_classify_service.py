@@ -47,7 +47,7 @@ async def test_normalize_queues_one_classify_job_per_version(engine, normalized)
         keys = sorted(
             (await conn.execute(select(Job.dedupe_key).where(Job.kind == CLASSIFY))).scalars()
         )
-    assert keys == ["1:v1.0", "2:v1.0", "3:v1.0"]
+    assert keys == ["1:v1.1", "2:v1.1", "3:v1.1"]
 
 
 async def test_each_version_gets_exactly_one_classification(engine, normalized):
@@ -75,7 +75,7 @@ async def test_full_results_and_denormalized_columns_are_stored(engine, normaliz
                 .where(ArticleVersion.headline.like("Protocol X%"))
             )
         ).one()
-    assert (c.classifier, c.model_version, c.question_set_version) == ("fake", "fake-1.0", "v1.0")
+    assert (c.classifier, c.model_version, c.question_set_version) == ("fake", "fake-1.0", "v1.1")
     assert c.event_type == "hack_exploit"
     assert c.event_type_prob == pytest.approx(0.9)
     assert c.sentiment == -1.0 and c.impact == 1.0
@@ -130,15 +130,15 @@ async def test_edited_version_gets_its_own_classification(engine, normalized):
 async def test_reclassify_with_a_new_question_set_keeps_both(engine, normalized, tmp_path):
     config = tmp_path / "config"
     shutil.copytree(PROJECT_ROOT / "config", config)
-    data = yaml.safe_load((config / "questions" / "v1.0.yaml").read_text())
-    data["version"] = "v1.1"
+    data = yaml.safe_load((config / "questions" / "v1.1.yaml").read_text())
+    data["version"] = "v9.0"
     data["questions"]["impact"]["instructions"] += " Consider the whole market."
-    (config / "questions" / "v1.1.yaml").write_text(yaml.safe_dump(data))
+    (config / "questions" / "v9.0.yaml").write_text(yaml.safe_dump(data))
 
     await classify(engine)
     async with engine.begin() as conn:
         ids = list((await conn.execute(select(ArticleVersion.id))).scalars())
-        assert await enqueue_classify(conn, ids, "v1.1") == 3
+        assert await enqueue_classify(conn, ids, "v9.0") == 3
     handler = ClassifyHandler(FakeClassifier(), config)
     await run_pending(engine, CLASSIFY, handler)
 
@@ -152,7 +152,7 @@ async def test_reclassify_with_a_new_question_set_keeps_both(engine, normalized,
                 )
             ).all()
         )
-    assert per_set == {"v1.0": 3, "v1.1": 3}
+    assert per_set == {"v1.1": 3, "v9.0": 3}
 
 
 class FlakyClassifier(FakeClassifier):

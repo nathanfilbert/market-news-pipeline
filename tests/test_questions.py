@@ -72,3 +72,14 @@ def test_invalid_question_sets(tmp_path, mutate, message):
 def test_unknown_version():
     with pytest.raises(QuestionSetError, match="not found"):
         load_question_set("v0.0", CONFIG)
+
+
+def test_default_question_set_exists_and_differs_only_in_wording():
+    from mnp.config import Settings
+
+    default = Settings(_env_file=None).question_set
+    v10, new = load_question_set("v1.0", CONFIG), load_question_set(default, CONFIG)
+    assert default == "v1.1"
+    assert new.questions.keys() == v10.questions.keys()
+    changed = {q for q in v10.questions if v10.questions[q] != new.questions[q]}
+    assert changed == {"is_promotional", "sentiment"}

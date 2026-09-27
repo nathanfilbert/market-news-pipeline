@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     jev_model: str = "jev-latest"
     jev_url: str = "https://api.typesafe.ai/v1/systemone"
     # Question set new article versions are classified with (config/questions/<version>.yaml).
-    question_set: str = "v1.0"
+    question_set: str = "v1.1"
     finnhub_api_key: SecretStr | None = None  # Finnhub sources are skipped when unset
     # Included in the User-Agent; SEC and BLS ask automated clients to identify themselves.
     contact_email: str | None = None
