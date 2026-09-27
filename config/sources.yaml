@@ -1,0 +1,9 @@
+# News sources. See docs/v1-plan.md §4. Verify each URL before adding it (M1).
+#
+# - name: coindesk
+#   kind: rss
+#   url: https://...
+#   poll_seconds: 60
+#   category: crypto
+#   reputation: 0.9
+[]
