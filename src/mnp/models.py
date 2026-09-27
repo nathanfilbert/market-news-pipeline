@@ -16,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Deterministic constraint names so Alembic autogenerate produces stable migrations.
@@ -159,3 +159,69 @@ class Job(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(Timestamp, server_default=text("now()"))
     finished_at: Mapped[datetime | None] = mapped_column(Timestamp)
+
+
+class Asset(Base):
+    """Taggable asset, synced from config/assets.yaml (see mnp.classify.assets for matching)."""
+
+    __tablename__ = "assets"
+    __table_args__ = (
+        CheckConstraint("kind IN ('crypto', 'equity', 'index', 'macro')", name="kind_valid"),
+    )
+
+    id: Mapped[int] = mapped_column(Identity(), primary_key=True)
+    symbol: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    aliases: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    exact_aliases: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    # The symbol is a common word (LINK, NEAR): it can't make the asset a candidate on its own.
+    ambiguous: Mapped[bool] = mapped_column(server_default=text("false"))
+    enabled: Mapped[bool] = mapped_column(server_default=text("true"))
+
+
+class Classification(Base):
+    __tablename__ = "classifications"
+    __table_args__ = (UniqueConstraint("article_version_id", "classifier", "question_set_version"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    article_version_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("article_versions.id"), index=True
+    )
+    content_hash: Mapped[str] = mapped_column(Text)
+    classifier: Mapped[str] = mapped_column(Text)  # 'jev'
+    model_version: Mapped[str] = mapped_column(Text)  # as reported by the API, e.g. jev-1.13.0
+    question_set_version: Mapped[str] = mapped_column(Text)  # e.g. v1.0
+    # Full classifier output (every probability), plus the state and asset candidates sent.
+    results: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # Denormalized from `results` for querying.
+    event_type: Mapped[str | None] = mapped_column(Text, index=True)
+    event_type_prob: Mapped[float | None] = mapped_column(Double)
+    domain: Mapped[str | None] = mapped_column(Text)
+    is_market_relevant_prob: Mapped[float | None] = mapped_column(Double)
+    is_new_information_prob: Mapped[float | None] = mapped_column(Double)
+    is_promotional_prob: Mapped[float | None] = mapped_column(Double)
+    sentiment: Mapped[float | None] = mapped_column(Double)  # -1 (bearish) .. +1 (bullish)
+    impact: Mapped[float | None] = mapped_column(Double)  # 0 .. 1
+    urgency: Mapped[float | None] = mapped_column(Double)  # 0 .. 1
+    latency_ms: Mapped[int]
+    classified_at: Mapped[datetime] = mapped_column(Timestamp, server_default=text("now()"))
+
+
+class ArticleAsset(Base):
+    __tablename__ = "article_assets"
+    __table_args__ = (
+        CheckConstraint(
+            "candidate_via IN ('alias_match', 'source_tag')", name="candidate_via_valid"
+        ),
+    )
+
+    article_version_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("article_versions.id"), primary_key=True
+    )
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), primary_key=True, index=True)
+    classification_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("classifications.id"), primary_key=True
+    )
+    candidate_via: Mapped[str] = mapped_column(Text)
+    relevance_prob: Mapped[float] = mapped_column(Double)  # Jev: "is this article about <asset>?"

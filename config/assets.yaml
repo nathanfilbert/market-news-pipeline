@@ -1,0 +1,160 @@
+# Assets for article tagging (docs/v1-plan.md §6).
+#
+# Crypto: top ~100 by market cap from CoinGecko's ranking on 2026-09-27 (names and symbols
+# only), minus tokenized funds and wrapped/staked derivatives, plus major stablecoins.
+# Review periodically; rankings drift.
+#
+# Matching (mnp.classify.assets):
+#   symbol   always case-sensitive, whole word; "$SYMBOL" cashtags also count
+#   aliases  case-insensitive, whole words ("bitcoin", "Bitcoin")
+#   exact    case-sensitive aliases, for names that are also ordinary words ("Avalanche")
+#   ambiguous: true  the symbol is a common word/abbreviation (LINK, NEAR, SPX): the symbol
+#            alone never makes the asset a candidate; an alias, exact alias, cashtag or a
+#            source-supplied tag is required.
+
+# --- Crypto ---
+- {symbol: BTC, name: Bitcoin, kind: crypto, aliases: [Bitcoin], exact: [XBT]}
+- {symbol: ETH, name: Ethereum, kind: crypto, aliases: [Ethereum, Ether]}
+- {symbol: BNB, name: BNB, kind: crypto, aliases: [BNB Chain, Binance Coin]}
+- {symbol: XRP, name: XRP, kind: crypto, aliases: [XRP Ledger], exact: [Ripple]}
+- {symbol: SOL, name: Solana, kind: crypto, aliases: [Solana]}
+- {symbol: TRX, name: TRON, kind: crypto, exact: [TRON, Tron]}
+- {symbol: ZEC, name: Zcash, kind: crypto, aliases: [Zcash]}
+- {symbol: HYPE, name: Hyperliquid, kind: crypto, aliases: [Hyperliquid], ambiguous: true}
+- {symbol: DOGE, name: Dogecoin, kind: crypto, aliases: [Dogecoin]}
+- {symbol: LINK, name: Chainlink, kind: crypto, aliases: [Chainlink], ambiguous: true}
+- {symbol: XMR, name: Monero, kind: crypto, aliases: [Monero]}
+- {symbol: XLM, name: Stellar, kind: crypto, aliases: [Stellar Lumens], exact: [Stellar]}
+- {symbol: WBT, name: WhiteBIT Coin, kind: crypto, aliases: [WhiteBIT Coin]}
+- {symbol: ADA, name: Cardano, kind: crypto, aliases: [Cardano], ambiguous: true}
+- {symbol: LEO, name: LEO Token, kind: crypto, aliases: [LEO Token, UNUS SED LEO], ambiguous: true}
+- {symbol: NEAR, name: NEAR Protocol, kind: crypto, aliases: [NEAR Protocol], ambiguous: true}
+- {symbol: BCH, name: Bitcoin Cash, kind: crypto, aliases: [Bitcoin Cash]}
+- {symbol: UNI, name: Uniswap, kind: crypto, aliases: [Uniswap], ambiguous: true}
+- {symbol: LTC, name: Litecoin, kind: crypto, aliases: [Litecoin]}
+- {symbol: CC, name: Canton, kind: crypto, aliases: [Canton Network, Canton Coin], ambiguous: true}
+- {symbol: SUI, name: Sui, kind: crypto, exact: [Sui]}
+- {symbol: AVAX, name: Avalanche, kind: crypto, exact: [Avalanche]}
+- {symbol: GRAM, name: Gram (prev. Toncoin), kind: crypto, aliases: [Toncoin, The Open Network], exact: [TON], ambiguous: true}
+- {symbol: HBAR, name: Hedera, kind: crypto, aliases: [Hedera]}
+- {symbol: TAO, name: Bittensor, kind: crypto, aliases: [Bittensor], ambiguous: true}
+- {symbol: SHIB, name: Shiba Inu, kind: crypto, aliases: [Shiba Inu]}
+- {symbol: QNT, name: Quant, kind: crypto, aliases: [Quant Network]}
+- {symbol: CRO, name: Cronos, kind: crypto, aliases: [Cronos]}
+- {symbol: ENA, name: Ethena, kind: crypto, aliases: [Ethena]}
+- {symbol: M, name: MemeCore, kind: crypto, aliases: [MemeCore], ambiguous: true}
+- {symbol: ONDO, name: Ondo, kind: crypto, aliases: [Ondo Finance], exact: [Ondo]}
+- {symbol: OKB, name: OKB, kind: crypto}
+- {symbol: AAVE, name: Aave, kind: crypto, aliases: [Aave]}
+- {symbol: PUMP, name: Pump.fun, kind: crypto, aliases: [Pump.fun, pumpfun], ambiguous: true}
+- {symbol: MNT, name: Mantle, kind: crypto, exact: [Mantle]}
+- {symbol: DOT, name: Polkadot, kind: crypto, aliases: [Polkadot], ambiguous: true}
+- {symbol: WLD, name: Worldcoin, kind: crypto, aliases: [Worldcoin, World Network]}
+- {symbol: ASTER, name: Aster, kind: crypto, aliases: [Aster DEX], ambiguous: true}
+- {symbol: MORPHO, name: Morpho, kind: crypto, aliases: [Morpho]}
+- {symbol: SKY, name: Sky, kind: crypto, aliases: [Sky Protocol], ambiguous: true}
+- {symbol: WLFI, name: World Liberty Financial, kind: crypto, aliases: [World Liberty Financial]}
+- {symbol: PEPE, name: Pepe, kind: crypto, aliases: [Pepe coin, pepecoin], ambiguous: true}
+- {symbol: ICP, name: Internet Computer, kind: crypto, aliases: [Internet Computer]}
+- {symbol: ARB, name: Arbitrum, kind: crypto, aliases: [Arbitrum], ambiguous: true}
+- {symbol: ETC, name: Ethereum Classic, kind: crypto, aliases: [Ethereum Classic], ambiguous: true}
+- {symbol: VVV, name: Venice Token, kind: crypto, aliases: [Venice Token, Venice AI]}
+- {symbol: BGB, name: Bitget Token, kind: crypto, aliases: [Bitget Token]}
+- {symbol: KAS, name: Kaspa, kind: crypto, aliases: [Kaspa]}
+- {symbol: POL, name: Polygon, kind: crypto, aliases: [Polygon], exact: [MATIC], ambiguous: true}
+- {symbol: GT, name: Gate, kind: crypto, aliases: [GateToken, Gate Token], ambiguous: true}
+- {symbol: JUP, name: Jupiter, kind: crypto, aliases: [Jupiter Exchange], exact: [Jupiter], ambiguous: true}
+- {symbol: LIT, name: Lighter, kind: crypto, aliases: [Lighter DEX], ambiguous: true}
+- {symbol: ALGO, name: Algorand, kind: crypto, aliases: [Algorand], ambiguous: true}
+- {symbol: CAKE, name: PancakeSwap, kind: crypto, aliases: [PancakeSwap], ambiguous: true}
+- {symbol: RENDER, name: Render, kind: crypto, aliases: [Render Network], ambiguous: true}
+- {symbol: JST, name: JUST, kind: crypto}
+- {symbol: PI, name: Pi Network, kind: crypto, aliases: [Pi Network], ambiguous: true}
+- {symbol: KCS, name: KuCoin Token, kind: crypto, aliases: [KuCoin Token]}
+- {symbol: ATOM, name: Cosmos Hub, kind: crypto, aliases: [Cosmos Hub], exact: [Cosmos], ambiguous: true}
+- {symbol: FIL, name: Filecoin, kind: crypto, aliases: [Filecoin]}
+- {symbol: NEXO, name: Nexo, kind: crypto, exact: [Nexo, NEXO]}
+- {symbol: DASH, name: Dash, kind: crypto, aliases: [Dash cryptocurrency, Dash network, Dash coin], ambiguous: true}
+- {symbol: AERO, name: Aerodrome Finance, kind: crypto, aliases: [Aerodrome], ambiguous: true}
+- {symbol: VET, name: VeChain, kind: crypto, aliases: [VeChain], ambiguous: true}
+- {symbol: INJ, name: Injective, kind: crypto, aliases: [Injective]}
+- {symbol: APT, name: Aptos, kind: crypto, aliases: [Aptos], ambiguous: true}
+- {symbol: XDC, name: XDC Network, kind: crypto, aliases: [XDC Network]}
+- {symbol: PYTH, name: Pyth Network, kind: crypto, aliases: [Pyth Network]}
+- {symbol: PENGU, name: Pudgy Penguins, kind: crypto, aliases: [Pudgy Penguins]}
+- {symbol: FLR, name: Flare, kind: crypto, aliases: [Flare Network]}
+- {symbol: TRUMP, name: Official Trump, kind: crypto, aliases: [Official Trump, TRUMP memecoin, Trump memecoin, Trump meme coin], ambiguous: true}
+- {symbol: RAY, name: Raydium, kind: crypto, aliases: [Raydium], ambiguous: true}
+- {symbol: ZRO, name: LayerZero, kind: crypto, aliases: [LayerZero]}
+- {symbol: FET, name: Artificial Superintelligence Alliance, kind: crypto, aliases: [Artificial Superintelligence Alliance, Fetch.ai]}
+- {symbol: CRV, name: Curve DAO, kind: crypto, aliases: [Curve DAO, Curve Finance]}
+- {symbol: VIRTUAL, name: Virtuals Protocol, kind: crypto, aliases: [Virtuals Protocol], ambiguous: true}
+- {symbol: SEI, name: Sei, kind: crypto, exact: [Sei Network, Sei]}
+- {symbol: TIA, name: Celestia, kind: crypto, aliases: [Celestia], ambiguous: true}
+- {symbol: XPL, name: Plasma, kind: crypto, aliases: [Plasma chain], exact: [Plasma]}
+- {symbol: PENDLE, name: Pendle, kind: crypto, aliases: [Pendle]}
+- {symbol: NIGHT, name: Midnight, kind: crypto, aliases: [Midnight Network], ambiguous: true}
+- {symbol: GRASS, name: Grass, kind: crypto, aliases: [Grass network], ambiguous: true}
+- {symbol: BSV, name: Bitcoin SV, kind: crypto, aliases: [Bitcoin SV]}
+- {symbol: SPX6900, name: SPX6900, kind: crypto, aliases: [SPX6900]}
+- {symbol: LDO, name: Lido DAO, kind: crypto, aliases: [Lido DAO, Lido Finance], exact: [Lido]}
+- {symbol: GRT, name: The Graph, kind: crypto, aliases: [The Graph]}
+- {symbol: BTT, name: BitTorrent, kind: crypto, aliases: [BitTorrent]}
+- {symbol: XTZ, name: Tezos, kind: crypto, aliases: [Tezos]}
+- {symbol: OP, name: Optimism, kind: crypto, aliases: [Optimism Foundation, OP Mainnet], exact: [Optimism], ambiguous: true}
+- {symbol: STX, name: Stacks, kind: crypto, aliases: [Stacks blockchain], exact: [Stacks]}
+- {symbol: ETHFI, name: Ether.fi, kind: crypto, aliases: [Ether.fi]}
+- {symbol: STRK, name: Starknet, kind: crypto, aliases: [Starknet]}
+- {symbol: JTO, name: Jito, kind: crypto, aliases: [Jito]}
+- {symbol: SUN, name: Sun Token, kind: crypto, aliases: [Sun Token], ambiguous: true}
+- {symbol: KITE, name: Kite, kind: crypto, aliases: [Kite AI], ambiguous: true}
+
+# --- Stablecoins ---
+- {symbol: USDT, name: Tether, kind: crypto, aliases: [Tether]}
+- {symbol: USDC, name: USD Coin, kind: crypto, aliases: [USD Coin]}
+- {symbol: USDS, name: USDS, kind: crypto}
+- {symbol: USDE, name: Ethena USDe, kind: crypto, aliases: [Ethena USDe], exact: [USDe]}
+- {symbol: DAI, name: Dai, kind: crypto, exact: [Dai], ambiguous: true}
+- {symbol: USD1, name: USD1, kind: crypto}
+- {symbol: USDG, name: Global Dollar, kind: crypto, aliases: [Global Dollar]}
+- {symbol: PYUSD, name: PayPal USD, kind: crypto, aliases: [PayPal USD]}
+- {symbol: RLUSD, name: Ripple USD, kind: crypto, aliases: [Ripple USD]}
+- {symbol: FDUSD, name: First Digital USD, kind: crypto, aliases: [First Digital USD]}
+- {symbol: USDD, name: USDD, kind: crypto}
+- {symbol: TUSD, name: TrueUSD, kind: crypto, aliases: [TrueUSD]}
+- {symbol: EURC, name: EURC, kind: crypto, aliases: [Euro Coin]}
+- {symbol: USD0, name: Usual USD, kind: crypto, aliases: [Usual USD]}
+- {symbol: GHO, name: GHO, kind: crypto}
+- {symbol: PAXG, name: PAX Gold, kind: crypto, aliases: [PAX Gold]}
+- {symbol: XAUT, name: Tether Gold, kind: crypto, aliases: [Tether Gold]}
+
+# --- Spot bitcoin ETFs (US) ---
+- {symbol: IBIT, name: iShares Bitcoin Trust, kind: equity, aliases: [iShares Bitcoin Trust]}
+- {symbol: FBTC, name: Fidelity Wise Origin Bitcoin Fund, kind: equity, aliases: [Fidelity Wise Origin Bitcoin Fund]}
+- {symbol: GBTC, name: Grayscale Bitcoin Trust, kind: equity, aliases: [Grayscale Bitcoin Trust]}
+- {symbol: ARKB, name: ARK 21Shares Bitcoin ETF, kind: equity, aliases: [ARK 21Shares Bitcoin ETF]}
+- {symbol: BITB, name: Bitwise Bitcoin ETF, kind: equity, aliases: [Bitwise Bitcoin ETF]}
+- {symbol: HODL, name: VanEck Bitcoin ETF, kind: equity, aliases: [VanEck Bitcoin ETF], ambiguous: true}
+- {symbol: BTCO, name: Invesco Galaxy Bitcoin ETF, kind: equity, aliases: [Invesco Galaxy Bitcoin ETF]}
+- {symbol: BRRR, name: CoinShares Bitcoin ETF, kind: equity, aliases: [CoinShares Valkyrie Bitcoin Fund, CoinShares Bitcoin ETF], ambiguous: true}
+- {symbol: EZBC, name: Franklin Bitcoin ETF, kind: equity, aliases: [Franklin Bitcoin ETF]}
+- {symbol: BTCW, name: WisdomTree Bitcoin Fund, kind: equity, aliases: [WisdomTree Bitcoin Fund]}
+
+# --- Spot ether ETFs (US) ---
+- {symbol: ETHA, name: iShares Ethereum Trust, kind: equity, aliases: [iShares Ethereum Trust]}
+- {symbol: FETH, name: Fidelity Ethereum Fund, kind: equity, aliases: [Fidelity Ethereum Fund]}
+- {symbol: ETHE, name: Grayscale Ethereum Trust, kind: equity, aliases: [Grayscale Ethereum Trust]}
+- {symbol: ETHW, name: Bitwise Ethereum ETF, kind: equity, aliases: [Bitwise Ethereum ETF]}
+- {symbol: CETH, name: 21Shares Core Ethereum ETF, kind: equity, aliases: [21Shares Core Ethereum ETF]}
+- {symbol: ETHV, name: VanEck Ethereum ETF, kind: equity, aliases: [VanEck Ethereum ETF]}
+- {symbol: QETH, name: Invesco Galaxy Ethereum ETF, kind: equity, aliases: [Invesco Galaxy Ethereum ETF]}
+- {symbol: EZET, name: Franklin Ethereum ETF, kind: equity, aliases: [Franklin Ethereum ETF]}
+
+# --- Macro entities and releases ---
+- {symbol: FED, name: Federal Reserve, kind: macro, aliases: [Federal Reserve], exact: [Fed]}
+- {symbol: FOMC, name: Federal Open Market Committee, kind: macro, aliases: [Federal Open Market Committee]}
+- {symbol: CPI, name: Consumer Price Index, kind: macro, aliases: [consumer price index, consumer prices]}
+- {symbol: PCE, name: PCE price index, kind: macro, aliases: [personal consumption expenditures]}
+- {symbol: NFP, name: Nonfarm payrolls, kind: macro, aliases: [nonfarm payrolls, non-farm payrolls, jobs report]}
+- {symbol: SEC, name: Securities and Exchange Commission, kind: macro, aliases: [Securities and Exchange Commission]}
+- {symbol: CFTC, name: Commodity Futures Trading Commission, kind: macro, aliases: [Commodity Futures Trading Commission]}

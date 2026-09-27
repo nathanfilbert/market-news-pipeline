@@ -34,6 +34,7 @@ class ParsedItem:
     author: str | None
     language: str | None
     published_at: datetime | None
+    tags: tuple[str, ...] = ()  # source-supplied categories/tickers, used for asset tagging
 
 
 def _wrap_xml_item(payload: dict[str, Any]) -> str:
@@ -131,6 +132,7 @@ def _parse_finnhub_news(payload: dict[str, Any]) -> ParsedItem:
         author=None,
         language=None,
         published_at=published_at,
+        tags=tuple(t.strip() for t in (item.get("related") or "").split(",") if t.strip()),
     )
 
 
@@ -160,4 +162,7 @@ def _parse_xml_item(payload: dict[str, Any]) -> ParsedItem:
         author=clean_text(entry.get("author")),
         language=entry.get("language") or None,
         published_at=_timestamp(entry.get("published_parsed") or entry.get("updated_parsed")),
+        tags=tuple(
+            term for t in entry.get("tags") or [] if (term := (t.get("term") or "").strip())
+        ),
     )
