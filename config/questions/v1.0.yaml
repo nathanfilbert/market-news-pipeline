@@ -1,0 +1,121 @@
+# Jev question set v1.0 (docs/v1-plan.md §6). All questions go in one call per article version.
+#
+# Changing any wording, option or level requires a new file with a new version (v1.1, ...):
+# classifications are keyed by question_set_version, and `mnp reclassify --question-set` runs a
+# new version side by side with the old one.
+#
+# Written to TypeSafe's guidance (docs.typesafe.ai): one judgment per question, questions point
+# at state fields by name, Score levels describe situations rather than degrees (each level is
+# judged on its own), and nothing asks Jev for dates or numbers. Score answers are mapped to the
+# numeric `range` in code.
+#
+# State sent with every question:
+#   {headline, summary, body, source: {name, category}, published_at}
+
+version: v1.0
+
+questions:
+  event_type:
+    type: choice
+    instructions: >-
+      Which type of event does this news article (`headline`, `summary` and `body`) mainly
+      report? Choose the event the article is about, not events it mentions for background.
+    criteria:
+      exchange_listing: A crypto exchange or trading venue lists, or announces it will list, a token or trading pair (spot, perpetual or futures).
+      exchange_delisting: An exchange or trading venue delists, suspends or restricts trading of a token or pair.
+      hack_exploit: A hack, exploit, theft, drained funds, compromised keys, or a security breach at a protocol, exchange, wallet or company.
+      regulatory_enforcement: A regulator or prosecutor takes action against a specific company or person, such as charges, fines, settlements, arrests, sanctions or a lawsuit brought by an agency.
+      regulatory_policy: New or proposed laws, rules, guidance, licensing regimes or official statements of policy, not aimed at one specific company.
+      legal_court: A court ruling, trial, private lawsuit, bankruptcy proceeding or other litigation not brought by a regulator.
+      etf_institutional_flows: ETF filings, approvals, launches or fund flows, or institutions, treasury companies or funds buying, selling or holding an asset.
+      token_unlock_supply: Token unlocks, vesting releases, burns, buybacks, mints or other changes to an asset's circulating supply.
+      stablecoin_depeg_or_issuance: A stablecoin losing or regaining its peg, or large stablecoin issuance, redemption or reserve news.
+      protocol_upgrade_fork: A blockchain or protocol upgrade, hard fork, mainnet or testnet launch, outage or major technical change.
+      partnership_adoption: A partnership, integration, product launch, acquisition or adoption by a company, government or payment network.
+      macro_data_release: The release of an economic data point such as inflation, jobs, GDP, retail sales or PMI figures.
+      monetary_policy: Central bank decisions, meeting minutes, rate expectations or statements by central bank officials.
+      corporate_earnings_guidance: A company's earnings results, revenue, guidance or other financial reporting.
+      market_move_commentary: A report describing price moves, liquidations, trading volumes or market conditions, without a distinct underlying event.
+      opinion_analysis: An opinion piece, interview, analysis, explainer, prediction or column rather than a report of a new event.
+      other: None of the above describes the main event.
+
+  domain:
+    type: choice
+    instructions: Which market does this news article (`headline`, `summary` and `body`) mainly concern?
+    criteria:
+      crypto: Cryptocurrencies, tokens, blockchains, crypto companies or crypto-specific funds and regulation.
+      equities: Individual stocks, stock indexes or companies' shares, outside crypto.
+      macro: The overall economy, interest rates, central banks, inflation, currencies, government bonds or commodities.
+      other: Anything else, such as general politics, technology or sports with no clear market angle.
+
+  is_market_relevant:
+    type: noul
+    instructions: >-
+      Could the event reported in this article (`headline`, `summary` and `body`) plausibly move
+      the price of a tradable asset, such as a cryptocurrency, stock, stock index, bond, currency
+      or commodity?
+    criteria:
+      "true": The reported event could plausibly change what traders pay for at least one tradable asset.
+      "false": The article is unlikely to affect any asset's price, for example lifestyle, general-interest or purely educational content.
+
+  is_new_information:
+    type: noul
+    instructions: >-
+      Does this article (`headline`, `summary` and `body`) report new facts about an event, as
+      opposed to commentary, analysis, a price recap or a summary of news already reported?
+    criteria:
+      "true": The article reports something that has just happened or has just been announced.
+      "false": The article mainly offers opinion, analysis, a recap of price moves or background on known events.
+
+  is_promotional:
+    type: noul
+    instructions: >-
+      Is this article (`headline`, `summary` and `body`) a press release, sponsored post,
+      advertisement or other content written to promote a product, token, project or company?
+    criteria:
+      "true": Promotional content, such as a press release, sponsored or paid post, or advertisement.
+      "false": Independent news reporting or analysis.
+
+  sentiment:
+    type: score
+    range: [-1, 1]
+    instructions: >-
+      For the asset or market this article (`headline`, `summary` and `body`) is mainly about,
+      how does the reported news affect the price outlook?
+    criteria:
+      - "Clearly bad news: a hack, ban, collapse, lawsuit loss, large sell-off or similar negative event for the asset or market."
+      - "Somewhat bad news: a setback, delay, outflow, weak data or mildly negative development."
+      - "Neutral or mixed: no clear positive or negative effect, or the good and bad roughly balance."
+      - "Somewhat good news: a modest positive development such as an integration, inflow or better-than-expected data."
+      - "Clearly good news: a major approval, listing, adoption, strong rally or similar positive event for the asset or market."
+
+  impact:
+    type: score
+    range: [0, 1]
+    instructions: How large a price reaction is the event in this article (`headline`, `summary` and `body`) likely to cause?
+    criteria:
+      - "No price reaction expected: commentary, background, minor or evergreen news."
+      - "A small reaction limited to a small or niche asset, or a brief move in a larger one."
+      - "A noticeable move in a specific major asset, such as a top-50 cryptocurrency or a large company's stock."
+      - "A large, immediate move in a major asset or across a whole market, such as a major exchange hack, a surprise central bank decision or an ETF approval."
+
+  urgency:
+    type: score
+    range: [0, 1]
+    instructions: How soon does a trader need to know about the event in this article (`headline`, `summary` and `body`)?
+    criteria:
+      - "Evergreen: still relevant weeks from now; no need to act soon."
+      - "Relevant over the next few days."
+      - "Relevant today; markets may react within hours."
+      - "Time-critical: markets are likely reacting within minutes."
+
+# One yes/no question per candidate asset (see config/assets.yaml), asked in the same call.
+# `asset` is filled in as {name, symbol}.
+asset_question:
+  id_prefix: about_
+  instructions: >-
+    Is this article (`headline`, `summary` and `body`) materially about `asset`: does it report
+    news about `asset` or its price, rather than only mentioning it in passing?
+  criteria:
+    "true": The article's main subject, or one of its main subjects, is `asset`.
+    "false": The article only mentions `asset` in passing, as an example, or for comparison.

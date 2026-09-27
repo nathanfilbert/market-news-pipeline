@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -132,3 +133,41 @@ async def client(server):
     transport = httpx.MockTransport(server)
     async with make_http_client(Settings(_env_file=None), transport=transport) as c:
         yield c
+
+
+def jev_response(request: httpx.Request, *, model: str = "jev-1.13.0") -> httpx.Response:
+    """Mock Jev endpoint: answers every question in the request, in the documented shape."""
+    body = json.loads(request.content)
+    answers = {}
+    for qid, q in body["questions"].items():
+        if q["type"] == "noul":
+            answers[qid] = {"type": "noul", "noul": 0.8}
+        elif q["type"] == "choice":
+            options = list(q["criteria"])
+            probs = {
+                o: (0.7 if i == 0 else 0.3 / max(1, len(options) - 1))
+                for i, o in enumerate(options)
+            }
+            answers[qid] = {
+                "type": "choice",
+                "choice": options[0],
+                "probabilities": probs,
+                "confidence": 0.6,
+            }
+        else:
+            levels = len(q["criteria"])
+            answers[qid] = {
+                "type": "score",
+                "score": levels - 1,
+                "legend": {str(i): c for i, c in enumerate(q["criteria"])},
+                "probabilities": {str(i): float(i == levels - 1) for i in range(levels)},
+                "confidence": 1.0,
+            }
+    return httpx.Response(
+        200,
+        json={
+            "model": model,
+            "answers": answers,
+            "usage": {"input_tokens": 900, "output_tokens": 40},
+        },
+    )

@@ -16,6 +16,11 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://mnp:mnp@localhost:5432/mnp"
     jev_api_key: SecretStr | None = None
+    # Jev model: "jev-latest" follows new releases; pin e.g. "jev-1.13.0" to freeze behaviour.
+    jev_model: str = "jev-latest"
+    jev_url: str = "https://api.typesafe.ai/v1/systemone"
+    # Question set new article versions are classified with (config/questions/<version>.yaml).
+    question_set: str = "v1.1"
     finnhub_api_key: SecretStr | None = None  # Finnhub sources are skipped when unset
     # Included in the User-Agent; SEC and BLS ask automated clients to identify themselves.
     contact_email: str | None = None

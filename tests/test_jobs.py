@@ -2,7 +2,7 @@ import asyncio
 import random
 
 import pytest
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, insert, select, text, update
 
 from mnp.jobs import PermanentJobError, enqueue, retry_delay, run_pending
 from mnp.models import Job, Source
@@ -98,3 +98,25 @@ def test_retry_delay_grows_and_caps():
     assert 15 <= retry_delay(1, rng) <= 30
     assert 60 <= retry_delay(3, rng) <= 120
     assert 1800 <= retry_delay(30, rng) <= 3600
+
+
+async def test_retryable_errors_never_fail_and_honor_retry_after(engine):
+    from mnp.jobs import RetryableJobError
+
+    await queue(engine, ["a"])
+
+    async def handler(conn, payload):
+        raise RetryableJobError("upstream overloaded", retry_after=7200)
+
+    for _ in range(3):
+        stats = await run_pending(engine, "test", handler, max_attempts=1)
+        assert stats.retrying == 1
+        async with engine.begin() as conn:
+            j = (await conn.execute(select(Job))).one()
+            assert j.status == "pending"
+            # retry_after (2h) beats the normal backoff (<= 1h)
+            assert (
+                await conn.execute(select(Job.run_after - func.now() > text("interval '1 hour'")))
+            ).scalar()
+            await conn.execute(update(Job).values(run_after=func.now()))
+    assert j.attempts == 3

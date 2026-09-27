@@ -23,6 +23,7 @@ from mnp.models import Job
 log = logging.getLogger(__name__)
 
 NORMALIZE = "normalize"
+CLASSIFY = "classify"
 
 MAX_ATTEMPTS = 8
 MAX_ERROR_LENGTH = 2000
@@ -32,6 +33,18 @@ Handler = Callable[[AsyncConnection, dict[str, Any]], Awaitable[Any]]
 
 class PermanentJobError(Exception):
     """Retrying can't help (e.g. unparseable input): fail the job immediately."""
+
+
+class RetryableJobError(Exception):
+    """A dependency is unavailable (API outage, rate limit, bad credentials).
+
+    Retried with backoff indefinitely, never failed: nothing is wrong with the job itself, so
+    giving up would lose work. `retry_after` (seconds) delays the next attempt at least that long.
+    """
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 @dataclass(slots=True)
@@ -95,12 +108,18 @@ async def run_pending(
                 raise
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"[:MAX_ERROR_LENGTH]
-                if isinstance(exc, PermanentJobError) or attempts >= max_attempts:
+                retryable = isinstance(exc, RetryableJobError)
+                if isinstance(exc, PermanentJobError) or (
+                    attempts >= max_attempts and not retryable
+                ):
                     values = {"status": "failed", "finished_at": func.now()}
                     stats.failed += 1
                     log.error("%s job %d failed permanently: %s", kind, job.id, error)
                 else:
-                    delay = timedelta(seconds=retry_delay(attempts))
+                    seconds = retry_delay(attempts)
+                    if retryable and exc.retry_after:
+                        seconds = max(seconds, exc.retry_after)
+                    delay = timedelta(seconds=seconds)
                     values = {"run_after": func.now() + delay}
                     stats.retrying += 1
                     log.warning("%s job %d failed (attempt %d): %s", kind, job.id, attempts, error)
