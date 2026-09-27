@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mnp
+          POSTGRES_PASSWORD: mnp
+          POSTGRES_DB: mnp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mnp -d mnp"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql+psycopg://mnp:mnp@localhost:5432/mnp
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Migrate
+        run: uv run alembic upgrade head
+
+      - name: Test
+        run: uv run pytest
