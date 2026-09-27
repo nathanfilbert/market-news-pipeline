@@ -65,3 +65,31 @@
   poll_seconds: 120
   category: markets
   reputation: 0.8
+
+# --- Aggregator ---
+# Finnhub market news (news only, no price data): https://finnhub.io/docs/api/market-news.
+# The free plan is for personal use only and forbids redistributing the data. Skipped unless
+# FINNHUB_API_KEY is set.
+#
+# Disabled: on 2026-09-27 the crypto category was ~99% CoinDesk + Cointelegraph (already
+# collected via RSS), lagged RSS by hours, and CoinDesk items had empty summaries.
+- name: finnhub_crypto
+  kind: finnhub
+  url: https://finnhub.io/api/v1/news
+  poll_seconds: 60
+  category: crypto
+  reputation: 0.6
+  options: {category: crypto}
+  enabled: false
+
+# The general category is mostly Reuters (not available as RSS), plus Bloomberg and CNBC.
+# Reuters links go through news.google.com, so they merge with other sources by headline
+# clustering rather than by URL.
+
+- name: finnhub_general
+  kind: finnhub
+  url: https://finnhub.io/api/v1/news
+  poll_seconds: 60
+  category: markets
+  reputation: 0.6
+  options: {category: general}

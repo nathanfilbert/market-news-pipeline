@@ -25,10 +25,12 @@ def cli_env(tmp_path, monkeypatch, database_url):
         """
 - {name: good, kind: rss, url: "https://good.example.com/rss", category: crypto, reputation: 1}
 - {name: bad, kind: rss, url: "https://bad.example.com/rss", category: crypto, reputation: 0.5}
+- {name: fh, kind: finnhub, url: "https://fh.example.com/news", category: crypto, reputation: 0.5}
 """
     )
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("FINNHUB_API_KEY", "")  # overrides a real key in a local .env
     get_settings.cache_clear()
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -65,6 +67,7 @@ def test_collect_all_reports_failures_but_runs_others(cli_env, sync_engine):
     assert result.exit_code == 1
     assert "good: 3 received, 3 new, ok" in result.stdout
     assert "bad: 0 received, 0 new, FAILED (CollectorError: HTTP 502" in result.stdout
+    assert "fh: skipped (FINNHUB_API_KEY not set)" in result.stdout
     assert count_raw(sync_engine) == 3
 
 

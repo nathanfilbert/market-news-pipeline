@@ -9,7 +9,7 @@ import typer
 from sqlalchemy import func, select, text
 
 from mnp import __version__
-from mnp.collectors.base import make_http_client
+from mnp.collectors.base import CollectorUnavailable, make_http_client
 from mnp.collectors.service import (
     collect_once,
     make_collector,
@@ -100,11 +100,10 @@ async def _collect(configs, selected, once: bool) -> bool:
         async with make_http_client(settings) as client:
             jobs = []
             for cfg in selected:
-                collector = make_collector(cfg, client)
-                if collector is None:
-                    typer.echo(f"{cfg.name}: skipped ({cfg.kind} collector not implemented)")
-                    continue
-                jobs.append((ids[cfg.name], collector))
+                try:
+                    jobs.append((ids[cfg.name], make_collector(cfg, client, settings)))
+                except CollectorUnavailable as exc:
+                    typer.echo(f"{cfg.name}: skipped ({exc})")
 
             if once:
                 results = await asyncio.gather(*(collect_once(engine, i, c) for i, c in jobs))

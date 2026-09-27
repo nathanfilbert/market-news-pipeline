@@ -1,0 +1,46 @@
+[
+  {
+    "category": "crypto",
+    "datetime": 1790517600,
+    "headline": "Stablecoin supply climbs to a record high",
+    "id": 7004,
+    "image": "https://img.example.net/7004.jpg",
+    "related": "",
+    "source": "Wire Example",
+    "summary": "Total stablecoin supply rose for a sixth straight week.",
+    "url": "https://wire.example.net/stablecoin-supply-record"
+  },
+  {
+    "category": "crypto",
+    "datetime": 1790514300,
+    "headline": "Example Exchange lists TOKEN perpetuals; trading opens today",
+    "id": 7003,
+    "image": "",
+    "related": "",
+    "source": "Wire Example",
+    "summary": "Perpetual futures on TOKEN go live later today.",
+    "url": "https://wire.example.net/token-perps"
+  },
+  {
+    "category": "crypto",
+    "datetime": 1790510400,
+    "headline": "Example Exchange lists ‘TOKEN’ perpetuals — trading opens today",
+    "id": 7002,
+    "image": "https://cdn.example.com/img/1.jpg",
+    "related": "",
+    "source": "Example Crypto News",
+    "summary": "Example Exchange said it will list TOKEN perpetual futures & spot pairs.",
+    "url": "https://news.example.com/markets/2026/09/27/example-exchange-lists-token"
+  },
+  {
+    "category": "crypto",
+    "datetime": 1790508600,
+    "headline": "Protocol X patches bug after $12M exploit",
+    "id": 7001,
+    "image": "",
+    "related": "",
+    "source": "Example Crypto News",
+    "summary": "Attackers drained funds from a lending pool.",
+    "url": "https://news.example.com/tech/2026/09/27/protocol-x-exploit?utm_source=finnhub"
+  }
+]

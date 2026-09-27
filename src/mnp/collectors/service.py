@@ -13,9 +13,10 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from mnp.collectors.base import Collector
+from mnp.collectors.base import Collector, CollectorUnavailable
+from mnp.collectors.finnhub import FinnhubCollector
 from mnp.collectors.rss import RssCollector
-from mnp.config import SourceConfig
+from mnp.config import Settings, SourceConfig
 from mnp.jobs import NORMALIZE, enqueue
 from mnp.models import RawItem, Source, SourceState
 
@@ -23,8 +24,6 @@ log = logging.getLogger(__name__)
 
 MAX_BACKOFF_SECONDS = 3600.0
 MAX_ERROR_LENGTH = 2000
-
-COLLECTORS: dict[str, type[Collector]] = {"rss": RssCollector}
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +40,18 @@ class CollectResult:
         return self.error is None
 
 
-def make_collector(source: SourceConfig, client: httpx.AsyncClient) -> Collector | None:
-    """The collector for a source, or None if its kind isn't implemented yet."""
-    cls = COLLECTORS.get(source.kind)
-    return cls(source, client) if cls else None
+def make_collector(
+    source: SourceConfig, client: httpx.AsyncClient, settings: Settings
+) -> Collector:
+    """The collector for a source. Raises CollectorUnavailable if it can't run here."""
+    match source.kind:
+        case "rss":
+            return RssCollector(source, client)
+        case "finnhub":
+            if settings.finnhub_api_key is None:
+                raise CollectorUnavailable("FINNHUB_API_KEY not set")
+            return FinnhubCollector(source, client, settings.finnhub_api_key.get_secret_value())
+    raise CollectorUnavailable(f"no collector for kind {source.kind!r}")
 
 
 async def sync_sources(engine: AsyncEngine, sources: Iterable[SourceConfig]) -> dict[str, int]:
