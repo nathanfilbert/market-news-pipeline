@@ -13,7 +13,7 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "pyyaml>=6.0",
-    "sqlalchemy>=2.0",
+    "sqlalchemy[asyncio]>=2.0",
     "typer>=0.12",
     "uvicorn>=0.30",
 ]
@@ -24,6 +24,7 @@ mnp = "mnp.cli:app"
 [dependency-groups]
 dev = [
     "pytest>=8.2",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.6",
 ]
 
@@ -49,4 +50,5 @@ known-third-party = ["alembic"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+asyncio_mode = "auto"
 markers = ["db: requires the Postgres database from docker compose"]

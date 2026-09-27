@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://mnp:mnp@localhost:5432/mnp"
     jev_api_key: SecretStr | None = None
     aggregator_api_key: SecretStr | None = None
+    # Included in the User-Agent; SEC and BLS ask automated clients to identify themselves.
+    contact_email: str | None = None
     log_level: str = "INFO"
     config_dir: Path = PROJECT_ROOT / "config"
 
