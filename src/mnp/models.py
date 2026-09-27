@@ -191,7 +191,7 @@ class Classification(Base):
     content_hash: Mapped[str] = mapped_column(Text)
     classifier: Mapped[str] = mapped_column(Text)  # 'jev'
     model_version: Mapped[str] = mapped_column(Text)  # as reported by the API, e.g. jev-1.13.0
-    question_set_version: Mapped[str] = mapped_column(Text)  # e.g. v1.0
+    question_set_version: Mapped[str] = mapped_column(Text)  # e.g. v1.1
     # Full classifier output (every probability), plus the state and asset candidates sent.
     results: Mapped[dict[str, Any]] = mapped_column(JSONB)
     # Denormalized from `results` for querying.
