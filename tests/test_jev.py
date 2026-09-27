@@ -74,6 +74,7 @@ def test_long_bodies_are_truncated():
         (529, {}, None),
         (500, {}, None),
         (503, {}, None),
+        (520, {}, None),  # Cloudflare edge error seen in the first live run
         (401, {}, None),
     ],
 )
@@ -108,3 +109,16 @@ async def test_timeouts_and_connection_errors_are_retryable():
 async def test_non_retryable_errors(response, message):
     with pytest.raises(ClassifierError, match=message):
         await jev(lambda r: response).classify(STATE, QUESTIONS)
+
+
+async def test_html_error_pages_are_reduced_to_their_title():
+    page = (
+        "<!DOCTYPE html><html><head><title>typesafe.ai | 520: Web server is returning an "
+        "unknown error</title></head><body>" + "<div>noise</div>" * 200 + "</body></html>"
+    )
+    response = httpx.Response(520, text=page, headers={"content-type": "text/html"})
+    with pytest.raises(ClassifierUnavailable) as exc_info:
+        await jev(lambda r: response).classify(STATE, QUESTIONS)
+    assert str(exc_info.value) == (
+        "Jev HTTP 520: typesafe.ai | 520: Web server is returning an unknown error"
+    )
