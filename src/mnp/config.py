@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://mnp:mnp@localhost:5432/mnp"
     jev_api_key: SecretStr | None = None
-    aggregator_api_key: SecretStr | None = None
+    finnhub_api_key: SecretStr | None = None  # Finnhub sources are skipped when unset
     # Included in the User-Agent; SEC and BLS ask automated clients to identify themselves.
     contact_email: str | None = None
     log_level: str = "INFO"
@@ -33,13 +33,14 @@ def get_settings() -> Settings:
 
 class SourceConfig(BaseModel):
     name: str
-    kind: Literal["rss", "aggregator"]
+    kind: Literal["rss", "finnhub"]
     url: HttpUrl
     poll_seconds: int = Field(default=60, gt=0)
     category: str
     reputation: float = Field(ge=0, le=1)
     enabled: bool = True
     language: str = "en"  # default for items that don't declare one
+    options: dict[str, str] = Field(default_factory=dict)  # collector-specific settings
 
 
 def load_yaml(path: Path) -> Any:

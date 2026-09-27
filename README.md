@@ -22,6 +22,10 @@ uv run mnp collect --source coindesk --once # one source
 uv run mnp collect                          # poll continuously until Ctrl-C
 ```
 
+The Finnhub news sources (`finnhub_crypto`, `finnhub_general`) run only when `FINNHUB_API_KEY`
+is set in `.env`; get a free key at https://finnhub.io. The free plan is for personal use only
+and doesn't allow redistributing the data.
+
 Each new raw item queues a normalize job. Process the queue into articles, versions and
 clusters:
 

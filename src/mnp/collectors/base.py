@@ -33,6 +33,10 @@ class CollectorError(Exception):
         self.retry_after = retry_after
 
 
+class CollectorUnavailable(Exception):
+    """A source can't run in this environment (e.g. its API key isn't set)."""
+
+
 class Collector(ABC):
     def __init__(self, source: SourceConfig, client: httpx.AsyncClient) -> None:
         self.source = source

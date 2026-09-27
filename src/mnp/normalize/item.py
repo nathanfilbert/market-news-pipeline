@@ -88,10 +88,35 @@ def _timestamp(parsed) -> datetime | None:
 
 
 def parse_payload(payload: dict[str, Any]) -> ParsedItem:
-    fmt = payload.get("format")
-    if fmt != "xml_item":
-        raise UnparseableItem(f"unknown payload format {fmt!r}")
+    match payload.get("format"):
+        case "xml_item":
+            return _parse_xml_item(payload)
+        case "finnhub_news":
+            return _parse_finnhub_news(payload)
+        case fmt:
+            raise UnparseableItem(f"unknown payload format {fmt!r}")
 
+
+def _parse_finnhub_news(payload: dict[str, Any]) -> ParsedItem:
+    item = payload.get("item")
+    if not isinstance(item, dict):
+        raise UnparseableItem("finnhub payload has no item object")
+    ts = item.get("datetime")
+    published_at = (
+        datetime.fromtimestamp(ts, UTC) if isinstance(ts, int | float) and ts > 0 else None
+    )
+    return ParsedItem(
+        url=(item.get("url") or "").strip() or None,
+        headline=clean_text(item.get("headline")),
+        summary=clean_text(item.get("summary")),
+        body=None,
+        author=None,
+        language=None,
+        published_at=published_at,
+    )
+
+
+def _parse_xml_item(payload: dict[str, Any]) -> ParsedItem:
     document = _wrap_xml_item(payload)
     # response_headers pins the base URL used for relative links when there is no xml:base.
     feed = feedparser.parse(
