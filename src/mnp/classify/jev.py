@@ -4,11 +4,14 @@ Request/response shapes follow https://docs.typesafe.ai/api (read 2026-09-27, je
 one call evaluates one `state` against a map of typed questions and returns one answer per
 question id, plus the versioned `model` that answered.
 
-Retrying is left to the job queue: outages, overload (429/529/5xx), timeouts and auth errors
-raise ClassifierUnavailable, so jobs wait and retry with backoff and nothing is lost; a 422
-(request failed validation) is a bug on our side and counts toward the job's attempts.
+Retrying is left to the job queue. Outages, overload (429, any 5xx including 529 and
+Cloudflare's 52x), timeouts and auth errors raise ClassifierUnavailable, so jobs wait and retry
+with backoff and nothing is lost. A 422 (request failed validation) is a bug on our side and
+counts toward the job's attempts.
 """
 
+import html
+import re
 import time
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -25,7 +28,22 @@ from mnp.classify.base import (
 )
 
 DEFAULT_URL = "https://api.typesafe.ai/v1/systemone"
-RETRYABLE_STATUSES = {401, 403, 408, 429, 500, 502, 503, 504, 529}
+# Auth errors are retried too: fixing JEV_API_KEY lets the queue resume without losing work.
+# Every 5xx is retryable, including Cloudflare's 52x edge errors and Jev's 529 Overloaded.
+RETRYABLE_STATUSES = {401, 403, 408, 429}
+
+
+def _is_retryable(status: int) -> bool:
+    return status in RETRYABLE_STATUSES or status >= 500
+
+
+def _error_text(response: httpx.Response, limit: int = 300) -> str:
+    """Short error detail; HTML error pages are reduced to their <title>."""
+    text = response.text
+    if "html" in response.headers.get("content-type", "") or text.lstrip().startswith("<"):
+        m = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
+        text = html.unescape(m.group(1)).strip() if m else "HTML error page"
+    return " ".join(text.split())[:limit]
 
 
 def _retry_after(response: httpx.Response) -> float | None:
@@ -82,14 +100,14 @@ class JevClassifier:
             raise ClassifierUnavailable(f"Jev request failed: {type(exc).__name__}: {exc}") from exc
         latency_ms = round((time.monotonic() - started) * 1000)
 
-        if response.status_code in RETRYABLE_STATUSES:
+        if _is_retryable(response.status_code):
             hint = " (check JEV_API_KEY)" if response.status_code in (401, 403) else ""
             raise ClassifierUnavailable(
-                f"Jev HTTP {response.status_code}{hint}: {response.text[:300]}",
+                f"Jev HTTP {response.status_code}{hint}: {_error_text(response)}",
                 retry_after=_retry_after(response),
             )
         if not response.is_success:
-            raise ClassifierError(f"Jev HTTP {response.status_code}: {response.text[:1000]}")
+            raise ClassifierError(f"Jev HTTP {response.status_code}: {_error_text(response, 1000)}")
         try:
             data = response.json()
         except ValueError as exc:
