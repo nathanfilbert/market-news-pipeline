@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, HttpUrl, SecretStr
+from pydantic import BaseModel, Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     cluster_similarity_threshold: float = Field(default=0.6, gt=0, le=1)
     cluster_window_hours: float = Field(default=48, gt=0)
     config_dir: Path = PROJECT_ROOT / "config"
+
+    @field_validator("jev_api_key", "finnhub_api_key", "contact_email", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value: Any) -> Any:
+        # `FINNHUB_API_KEY=` (as copied from .env.example) means "not configured".
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 @lru_cache

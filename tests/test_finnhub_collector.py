@@ -116,3 +116,27 @@ def test_parse_finnhub_payload():
 def test_parse_finnhub_payload_without_timestamp():
     p = parse_payload({"format": "finnhub_news", "item": {"headline": "x", "datetime": 0}})
     assert p.published_at is None
+
+
+def test_parse_google_news_style_item_drops_suffix_and_echo_summary():
+    item = {
+        "headline": "Fed holds rates steady, signals patience - Reuters",
+        "source": "Reuters",
+        "summary": "Fed holds rates steady, signals patience" + chr(0xA0) * 2 + "Reuters",
+        "url": "https://news.google.com/rss/articles/CBMiabc",
+        "datetime": 1790517600,
+    }
+    p = parse_payload({"format": "finnhub_news", "item": item})
+    assert p.headline == "Fed holds rates steady, signals patience"
+    assert p.summary is None
+
+
+def test_parse_keeps_real_summary_and_unrelated_dashes():
+    item = {
+        "headline": "Stocks - what to watch this week",
+        "source": "CNBC",
+        "summary": "Both sides of the Fed's mandate are in focus.",
+    }
+    p = parse_payload({"format": "finnhub_news", "item": item})
+    assert p.headline == "Stocks - what to watch this week"
+    assert p.summary == "Both sides of the Fed's mandate are in focus."

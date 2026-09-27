@@ -30,7 +30,7 @@ def cli_env(tmp_path, monkeypatch, database_url):
     )
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("FINNHUB_API_KEY", raising=False)
+    monkeypatch.setenv("FINNHUB_API_KEY", "")  # overrides a real key in a local .env
     get_settings.cache_clear()
 
     def handler(request: httpx.Request) -> httpx.Response:

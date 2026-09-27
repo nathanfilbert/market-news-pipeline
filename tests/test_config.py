@@ -59,3 +59,11 @@ def test_settings_from_env(monkeypatch):
     assert settings.database_url == "postgresql+psycopg://u:p@h:1/d"
     assert settings.jev_api_key.get_secret_value() == "secret"
     assert "secret" not in repr(settings)
+
+
+def test_blank_optional_settings_are_unset(monkeypatch):
+    monkeypatch.setenv("FINNHUB_API_KEY", "")
+    monkeypatch.setenv("CONTACT_EMAIL", "  ")
+    settings = Settings(_env_file=None)
+    assert settings.finnhub_api_key is None
+    assert settings.contact_email is None

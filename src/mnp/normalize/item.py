@@ -97,6 +97,14 @@ def parse_payload(payload: dict[str, Any]) -> ParsedItem:
             raise UnparseableItem(f"unknown payload format {fmt!r}")
 
 
+def _strip_publisher_suffix(headline: str | None, publisher: str) -> str | None:
+    """'Fed holds rates - Reuters' -> 'Fed holds rates' (improves cross-source clustering)."""
+    if not headline or not publisher:
+        return headline
+    pattern = rf"\s+[-\u2013\u2014|]\s+{re.escape(publisher)}$"
+    return re.sub(pattern, "", headline, flags=re.IGNORECASE) or headline
+
+
 def _parse_finnhub_news(payload: dict[str, Any]) -> ParsedItem:
     item = payload.get("item")
     if not isinstance(item, dict):
@@ -105,10 +113,20 @@ def _parse_finnhub_news(payload: dict[str, Any]) -> ParsedItem:
     published_at = (
         datetime.fromtimestamp(ts, UTC) if isinstance(ts, int | float) and ts > 0 else None
     )
+    publisher = clean_text(item.get("source")) or ""
+    raw_headline = clean_text(item.get("headline"))
+    headline = _strip_publisher_suffix(raw_headline, publisher)
+    summary = clean_text(item.get("summary"))
+    # Google News-sourced items (e.g. Reuters) use "<headline> <publisher>" as the summary.
+    if summary is not None and summary.casefold() in {
+        (s or "").casefold()
+        for s in (headline, raw_headline, f"{headline} {publisher}", f"{raw_headline} {publisher}")
+    }:
+        summary = None
     return ParsedItem(
         url=(item.get("url") or "").strip() or None,
-        headline=clean_text(item.get("headline")),
-        summary=clean_text(item.get("summary")),
+        headline=headline,
+        summary=summary,
         body=None,
         author=None,
         language=None,
