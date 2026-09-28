@@ -429,7 +429,11 @@ As built (2026-09-28, not yet enabled):
   normalizer takes the title, URL, language and GDELT's first-seen time (no summary).
 - **Rate limit:** all GDELT sources share one pacer, one request every 10 s. A 429 or GDELT's
   "Please limit requests" text pauses every GDELT source for 2 minutes and backs the source off.
-- **Before enabling:** check GDELT's terms of use and attribution; the theme queries were
+- **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
+  any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
+  link to https://www.gdeltproject.org/. Cited in the README; downstream users of GDELT articles
+  must cite it too.
+- **Before enabling:** the theme queries were
   written from GDELT's documentation without a live test (the dev container can't reach GDELT),
   so run each once with `mnp collect --source <name> --once` and look at volume and relevance.
 

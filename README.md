@@ -97,8 +97,8 @@ run while `mnp run` is running.
 
 How far back it can reach depends on the source: feeds only list their latest items, which is
 about 3 days for CoinDesk, Cointelegraph, Decrypt and Finnhub, weeks for the Fed, SEC and CNBC,
-about 2 weeks for The Block (which supports paging), and up to 3 months for GDELT queries. So a gap from downtime is fully
-recoverable for roughly 2-3 days.
+about 2 weeks for The Block (which supports paging), and up to 3 months for GDELT queries. So a
+gap from downtime is fully recoverable for roughly 2-3 days.
 
 Items published long before they're first seen (more than `BACKFILL_AFTER_DAYS`, default 7)
 are normally treated as stale old news: not classified and hidden from queries
@@ -174,8 +174,12 @@ forbid redistributing its data.
 
 - **Sources:** `config/sources.yaml`. RSS feeds, Finnhub and GDELT queries, each with a poll
   interval and a reputation. Verify a feed works before adding it. GDELT sources (sanctions,
-  conflict, regulation, central banks) are disabled until GDELT's terms are checked; they share
-  one request every 10 seconds, within GDELT's limit of one per 5.
+  conflict, regulation, central banks) are disabled until each query has been tried once; they
+  share one request every 10 seconds, within GDELT's limit of one per 5.
+- **GDELT attribution:** GDELT data is free for any use, but [its terms](https://www.gdeltproject.org/about.html#termsofuse)
+  require any use or redistribution to cite the GDELT Project and link to
+  https://www.gdeltproject.org/. Anything built on this pipeline's GDELT articles (API or feed
+  consumers included) must carry that citation too; their `source` starts with `gdelt_`.
 - **Questions:** `config/questions/<version>.yaml`. Never edit a question set in place: copy it
   to a new version, then `uv run mnp reclassify --question-set v1.2 [--since 2026-10-01]` labels
   stored articles with it, side by side with the old labels. Set `QUESTION_SET` to make it the

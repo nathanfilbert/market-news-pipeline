@@ -121,8 +121,9 @@
 # GDELT's GKG themes (https://blog.gdeltproject.org/gdelt-global-knowledge-graph/) and are
 # limited to English-language coverage.
 #
-# Disabled until GDELT's terms of use and attribution requirements are checked (plan §12) and
-# each query's volume has been looked at: try one with
+# Terms (checked 2026-09-28): free for any use, but any use or redistribution must cite the
+# GDELT Project and link to https://www.gdeltproject.org/ (see README).
+# Disabled until each query's volume and relevance has been looked at: try one with
 #   mnp collect --source gdelt_sanctions --once
 - name: gdelt_sanctions
   kind: gdelt
