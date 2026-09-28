@@ -140,3 +140,18 @@ def test_parse_keeps_real_summary_and_unrelated_dashes():
     p = parse_payload({"format": "finnhub_news", "item": item})
     assert p.headline == "Stocks - what to watch this week"
     assert p.summary == "Both sides of the Fed's mandate are in focus."
+
+
+@pytest.mark.parametrize(
+    ("headline", "source", "expected"),
+    [
+        ("UK stocks fall as oil rises - reuters.com", "Reuters", "UK stocks fall as oil rises"),
+        ("Fed holds - Reuters", "Reuters", "Fed holds"),
+        ("Markets \u2014 Bloomberg", "Bloomberg", "Markets"),
+        ("Stocks - what to watch", "CNBC", "Stocks - what to watch"),
+        ("Q3 outlook - Reuters Breakingviews", "Reuters", "Q3 outlook"),
+    ],
+)
+def test_publisher_suffixes(headline, source, expected):
+    item = {"headline": headline, "source": source}
+    assert parse_payload({"format": "finnhub_news", "item": item}).headline == expected

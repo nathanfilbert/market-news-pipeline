@@ -99,11 +99,21 @@ def parse_payload(payload: dict[str, Any]) -> ParsedItem:
 
 
 def _strip_publisher_suffix(headline: str | None, publisher: str) -> str | None:
-    """'Fed holds rates - Reuters' -> 'Fed holds rates' (improves cross-source clustering)."""
+    """'Fed holds rates - Reuters' / '... - reuters.com' -> 'Fed holds rates'.
+
+    Improves cross-source clustering. Only a trailing segment naming the publisher (its name or
+    a domain containing it) is removed.
+    """
     if not headline or not publisher:
         return headline
-    pattern = rf"\s+[-\u2013\u2014|]\s+{re.escape(publisher)}$"
-    return re.sub(pattern, "", headline, flags=re.IGNORECASE) or headline
+    m = re.search(r"\s+[-\u2013\u2014|]\s+([^-\u2013\u2014|]{1,40})$", headline)
+    if not m:
+        return headline
+    suffix = m.group(1).strip().casefold()
+    name = re.sub(r"\W+", "", publisher.casefold())
+    if suffix == publisher.casefold() or (name and re.sub(r"\W+", "", suffix).startswith(name)):
+        return headline[: m.start()] or headline
+    return headline
 
 
 def _parse_finnhub_news(payload: dict[str, Any]) -> ParsedItem:
