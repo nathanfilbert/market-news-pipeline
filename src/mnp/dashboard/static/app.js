@@ -32,7 +32,15 @@
       scales: {},
     };
     if (kind === "stacked") options.scales = { x: { stacked: true }, y: { stacked: true, beginAtZero: true } };
-    if (kind === "bar" && spec.horizontal) options.indexAxis = "y";
+    if (kind === "bar" && spec.horizontal) {
+      options.indexAxis = "y";
+      options.scales = { x: { beginAtZero: true, ticks: { precision: 0 } } };  // counts
+      spec.datasets.forEach((ds) => { ds.maxBarThickness = 22; });
+    }
+    if (spec.links) {
+      options.onClick = (_e, items) => { if (items.length) location.href = spec.links[items[0].index]; };
+      options.onHover = (e, items) => { e.native.target.style.cursor = items.length ? "pointer" : ""; };
+    }
     if (kind === "scatter") {
       options.scales = {
         x: { min: -1, max: 1, title: { display: true, text: spec.xLabel || "" } },

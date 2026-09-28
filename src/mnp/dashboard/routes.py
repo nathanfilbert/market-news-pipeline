@@ -9,6 +9,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import yaml
 from fastapi import APIRouter, HTTPException, Request
@@ -22,6 +23,7 @@ from mnp.dashboard import tz
 from mnp.outputs.api import Conn
 from mnp.outputs.queries import (
     ArticleFilter,
+    asset_counts,
     get_article,
     get_cluster,
     get_raw_item,
@@ -116,6 +118,20 @@ def bar_chart(pairs: list[tuple[str, int]], horizontal: bool = True) -> dict[str
         "labels": [label(k) for k, _ in pairs],
         "datasets": [{"label": "articles", "data": [n for _, n in pairs]}],
         "horizontal": horizontal,
+    }
+
+
+def asset_chart(
+    counts: list[tuple[str, int]], params: dict[str, str], top: int = 20
+) -> dict[str, Any]:
+    """Articles per asset (top `top`); each bar links to the article list filtered to it."""
+    pairs = counts[:top]
+    return {
+        **bar_chart(pairs),
+        "links": [
+            "/ui/articles?" + urlencode(merge(params, asset=symbol, offset=None))
+            for symbol, _ in pairs
+        ],
     }
 
 
@@ -223,12 +239,28 @@ async def articles(request: Request, conn: Conn) -> HTMLResponse:
     params = dict(request.query_params)
     f, error = ui_filter(params)
     rows = await search_articles(conn, f)
-    context = {"articles": rows, "filter": f, "params": params, "error": error}
+    counts = await asset_counts(conn, f)
+    context = {
+        "articles": rows,
+        "filter": f,
+        "params": params,
+        "error": error,
+        "asset_counts": counts,
+        "asset_chart": asset_chart(counts, params),
+    }
     if request.headers.get("HX-Request") and request.headers.get("HX-Target") == "article-rows":
         return render(request, "_article_rows.html", **context)
     event_types = list(load_question_set(f.question_set).questions["event_type"]["criteria"])
     sources = [s["name"] for s in (await health(conn))["sources"]]
-    return render(request, "articles.html", event_types=event_types, sources=sources, **context)
+    assets = await dq.enabled_assets(conn)
+    return render(
+        request,
+        "articles.html",
+        event_types=event_types,
+        sources=sources,
+        assets=assets,
+        **context,
+    )
 
 
 @router.get("/articles/{article_id}", response_class=HTMLResponse)

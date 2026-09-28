@@ -352,3 +352,14 @@ def days_between(since: datetime, until: datetime, zone: tzinfo | None = None) -
     first = (since.astimezone(zone) if zone else since).date()
     last = (until.astimezone(zone) if zone else until).date()
     return [(first + timedelta(days=i)).isoformat() for i in range((last - first).days + 1)]
+
+
+async def enabled_assets(conn: AsyncConnection) -> list[Any]:
+    """Configured (enabled) assets, for filter dropdowns: grouped by kind, then by symbol."""
+    return (
+        await conn.execute(
+            select(Asset.symbol, Asset.name, Asset.kind)
+            .where(Asset.enabled)
+            .order_by(Asset.kind, Asset.symbol)
+        )
+    ).all()
