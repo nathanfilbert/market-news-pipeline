@@ -14,6 +14,7 @@ them, but no summary. Each article object is stored as received.
 import asyncio
 import hashlib
 import logging
+import re
 import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -42,6 +43,45 @@ MAX_RECORDS = 250  # the API's maximum per request
 REQUEST_TIMEOUT = httpx.Timeout(60.0, connect=15.0)
 SEENDATE_FORMAT = "%Y%m%dT%H%M%SZ"
 QUERY_DATE_FORMAT = "%Y%m%d%H%M%S"
+
+
+# An article is kept only if its title mentions one of these: a whole word (plural "s"/"es"
+# allowed), or a word start for entries ending in "*". GDELT's theme tags are loose, so this drops
+# travel lists and local politics before they are stored or cost a classification. Override per
+# source with `options.title_keywords` (comma-separated; empty turns the filter off).
+DEFAULT_TITLE_KEYWORDS = (
+    # energy and shipping
+    "oil", "crude", "brent", "opec", "gas", "lng", "fuel", "diesel", "gasoline", "petrol",
+    "energy", "pipeline", "refiner*", "tanker", "shipping", "strait", "hormuz",
+    # trade and sanctions
+    "tariff*", "trade*", "export*", "import*", "embargo*", "sanction*", "blockade*",
+    # macro, rates and money
+    "inflation*", "rate", "interest rate", "yield", "bond", "treasur*", "debt", "default*",
+    "bank", "central bank", "fed", "ecb", "gdp", "econom*", "recession*", "currenc*",
+    "dollar", "euro", "yen", "yuan", "ruble", "rupee", "forex",
+    # markets and companies
+    "market", "stock", "shares", "equit*", "nasdaq", "dow jones", "s&p", "price", "invest*",
+    "earning*", "profit*", "revenue*", "bankrupt*", "ipo", "merger*", "acqui*", "fund",
+    # commodities and crypto
+    "gold", "silver", "copper", "metal", "wheat", "grain", "commodit*", "bitcoin", "crypto*",
+    # regulators
+    "sec", "regulat*",
+)  # fmt: skip
+
+
+def title_filter(keywords: str | None = None) -> re.Pattern[str] | None:
+    """Pattern matching titles that mention a keyword; None if the filter is off."""
+    words = (
+        DEFAULT_TITLE_KEYWORDS
+        if keywords is None
+        else tuple(w.strip() for w in keywords.split(",") if w.strip())
+    )
+    if not words:
+        return None
+    alternatives = [
+        re.escape(w[:-1]) if w.endswith("*") else re.escape(w) + r"(?:e?s)?(?!\w)" for w in words
+    ]
+    return re.compile(r"(?<!\w)(?:" + "|".join(alternatives) + ")", re.IGNORECASE)
 
 
 class RequestPacer:
@@ -118,6 +158,8 @@ class GdeltCollector(Collector):
         # GDELT indexes in 15-minute batches, so an article can appear after later ones were
         # already returned: each poll re-reads this much before the checkpoint.
         self.overlap = timedelta(minutes=float(source.options.get("overlap_minutes", 30)))
+        keywords = source.options.get("title_keywords")
+        self.title_filter = title_filter(None if keywords is None else str(keywords))
         self.pacer = pacer
         self.now = now
 
@@ -141,6 +183,7 @@ class GdeltCollector(Collector):
         """Page through [start, end] oldest first. Returns payloads and the latest seendate."""
         payloads: list[RawPayload] = []
         latest: datetime | None = None
+        skipped = 0
         for _ in range(max_pages):
             articles = await self._request(start, end)
             page_latest: datetime | None = None
@@ -150,6 +193,9 @@ class GdeltCollector(Collector):
                 seen = parse_seendate(article.get("seendate"))
                 if seen and (page_latest is None or seen > page_latest):
                     page_latest = seen
+                if self.title_filter and not self.title_filter.search(article.get("title") or ""):
+                    skipped += 1
+                    continue
                 payloads.append(
                     RawPayload(
                         payload={"format": "gdelt_doc", "query": self.query, "item": article},
@@ -181,6 +227,13 @@ class GdeltCollector(Collector):
                 self.source.name,
                 max_pages,
                 extra={"source": self.source.name},
+            )
+        if skipped:
+            log.info(
+                "GDELT query for %s: %d articles without a market keyword in the title skipped",
+                self.source.name,
+                skipped,
+                extra={"source": self.source.name, "skipped": skipped},
             )
         return payloads, latest
 

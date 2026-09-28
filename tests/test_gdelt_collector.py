@@ -26,7 +26,7 @@ GD = source(
     "gd",
     kind="gdelt",
     url="https://api.gdelt.example.com/api/v2/doc/doc",
-    options={"query": "theme:SANCTIONS sourcelang:english"},
+    options={"query": "theme:SANCTIONS sourcelang:english", "title_keywords": ""},
 )
 
 
@@ -129,7 +129,7 @@ async def test_full_pages_are_followed_oldest_first():
 
 async def test_page_limit_resumes_from_where_it_stopped():
     starts = []
-    src = source("gd", kind="gdelt", options={"query": "q", "max_pages": 2})
+    src = source("gd", kind="gdelt", options={"query": "q", "max_pages": 2, "title_keywords": ""})
 
     def handler(request):
         starts.append(request.url.params["startdatetime"])
@@ -271,7 +271,7 @@ async def collect_rss_and_gdelt(engine, server, client) -> None:
         "gdelt",
         kind="gdelt",
         url="https://gdelt.example.com/api/v2/doc/doc",
-        options={"query": "q"},
+        options={"query": "q", "title_keywords": ""},
     )
     ids = await sync_sources(engine, [source("b"), gd])
     server.serve("b", fixture="rss/second_source.xml")
@@ -373,3 +373,42 @@ async def test_continuous_running_stays_within_rate_limit(engine, monkeypatch):
     )
     gaps = [b - a for a, b in pairwise(sent)]
     assert gaps and min(gaps) >= 5
+
+
+def test_title_filter_keeps_market_headlines():
+    kept = [
+        "Qatar extends LNG force majeure",
+        "Tariffs hit exporters",
+        "Dow Jones falls as oil jumps",
+        "SEC sets structured warrant rules",
+        "Fed holds rates steady",
+        "S&P 500 slips on Hormuz strikes",
+    ]
+    dropped = [
+        "9 Places Americans Visit For The Wrong Reasons",
+        "Indian campus politics heat up",
+        "Downtown parade draws crowds",
+        "Second round of talks",
+        "Mobile home lot rents rise",
+    ]
+    pattern = gdelt.title_filter()
+    assert [t for t in kept if not pattern.search(t)] == []
+    assert [t for t in dropped if pattern.search(t)] == []
+    assert gdelt.title_filter("") is None
+    custom = gdelt.title_filter("lithium, rare earth*")
+    assert custom.search("Rare earths export curbs") and not custom.search("Oil jumps")
+
+
+async def test_articles_without_market_title_are_skipped_but_advance_checkpoint():
+    src = source("gd", kind="gdelt", options={"query": "q"})  # default title filter
+    articles = [
+        {
+            "url": "https://n.example.com/1",
+            "title": "Oil jumps on Hormuz",
+            "seendate": "20260927T093000Z",
+        },
+        {"url": "https://n.example.com/2", "title": "Best beaches", "seendate": "20260927T100000Z"},
+    ]
+    payloads, checkpoint = await collector(lambda r: articles_response(articles), src=src).fetch({})
+    assert [p.url for p in payloads] == ["https://n.example.com/1"]
+    assert checkpoint == {"seen_through": "20260927T100000Z"}

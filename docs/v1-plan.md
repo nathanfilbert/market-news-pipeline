@@ -440,6 +440,11 @@ As built (2026-09-28, not yet enabled):
   conflict ~125 (was ~450), sanctions ~43, regulation ~17 (was ~200), central banks ~85 (still
   mixed). GDELT rejects long queries ("too short or too long"), so each keeps to ~3 OR'd themes.
   Each query needed 3-6 tries through the throttling.
+- **Narrowed further** (owner, 2026-09-28): each source now pairs its topic with one specific
+  market theme (conflict x oil price, conflict x stock market, sanctions x oil price, sanctions x
+  currency, central banks x interest rates; regulation unchanged), and the collector drops
+  articles whose title has no market keyword (`DEFAULT_TITLE_KEYWORDS`, overridable per source)
+  before they are stored or classified. The checkpoint still advances past dropped articles.
 - **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
   any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
   link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the
