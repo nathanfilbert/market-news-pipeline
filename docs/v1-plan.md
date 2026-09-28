@@ -434,9 +434,12 @@ As built (2026-09-28, not yet enabled):
   150 s of silence, so throttling is partly per IP and outside our control. `gdelt_conflict`
   returned 230 English articles from 144 domains for about half an hour of coverage (GDELT's
   newest articles lag 30-45 minutes; the first poll now looks back 120 minutes), with weak market
-  relevance (travel lists, campus politics), so the owner asked for it to be narrowed: conflict
-  articles that also carry an oil, gas, blockade, currency or stock market theme. The other three
-  queries, and the narrowed one, were throttled every time, so their theme names are unconfirmed.
+  relevance (travel lists, campus politics), so the owner asked for it to be narrowed. Every
+  query now requires a topic theme plus a market theme (oil price, oil, stock market; for
+  regulation stock market, bankruptcy, debt) and excludes a few spam domains. Measured per hour:
+  conflict ~125 (was ~450), sanctions ~43, regulation ~17 (was ~200), central banks ~85 (still
+  mixed). GDELT rejects long queries ("too short or too long"), so each keeps to ~3 OR'd themes.
+  Each query needed 3-6 tries through the throttling.
 - **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
   any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
   link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the

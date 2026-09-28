@@ -214,6 +214,11 @@ class GdeltCollector(Collector):
             )
         raise_for_status(response)
         if body is None:
+            if "too short or too long" in response.text:
+                raise CollectorError(
+                    "GDELT rejected the query as too long: keep to ~3 OR'd themes "
+                    f"({len(self.query)} characters)"
+                )
             raise CollectorError(f"GDELT error: {response.text[:200]!r}")
         if not isinstance(body, dict):
             raise CollectorError(f"unexpected GDELT response: {str(body)[:200]}")

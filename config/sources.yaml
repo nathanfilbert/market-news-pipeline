@@ -123,20 +123,27 @@
 #
 # Terms (checked 2026-09-28): free for any use, but any use or redistribution must cite the
 # GDELT Project and link to https://www.gdeltproject.org/ (see README).
-# Disabled until each query's volume and relevance has been looked at: try one with
+# Each query was run live on 2026-09-28 and narrowed so that a topic theme must appear with a
+# market theme; theme tags alone let through travel lists, campus politics and law-firm spam.
+# GDELT rejects long queries ("too short or too long"): keep to ~3 OR'd themes and a couple of
+# -domain: exclusions. Rates below are articles per hour.
+# Disabled until the owner switches them on; try one with
 #   mnp collect --source gdelt_sanctions --once
+
+# ~43/h: Iran talks, Russian crude imports, trade talks. iheart.com repeats one story a lot.
 - name: gdelt_sanctions
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
   poll_seconds: 300
   category: world
   reputation: 0.5
-  options: {query: "theme:SANCTIONS sourcelang:english"}
+  options:
+    query: >-
+      theme:SANCTIONS (theme:ECON_OILPRICE OR theme:ENV_OIL OR theme:ECON_STOCKMARKET)
+      sourcelang:english -domain:iheart.com
   enabled: false
 
-# Conflict alone returned ~230 articles per half hour in live testing (2026-09-28), mostly not
-# market news (travel lists, campus politics). Only conflict coverage that also touches oil, gas,
-# shipping blockades, currencies or stock markets.
+# ~125/h (~450/h without the market themes): Hormuz, LNG force majeure, fuel prices.
 - name: gdelt_conflict
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
@@ -145,11 +152,11 @@
   reputation: 0.5
   options:
     query: >-
-      theme:ARMEDCONFLICT (theme:ECON_OILPRICE OR theme:ENV_OIL OR theme:ENV_NATURALGAS OR
-      theme:BLOCKADE OR theme:ECON_CURRENCY_EXCHANGE_RATE OR theme:ECON_STOCKMARKET)
-      sourcelang:english
+      theme:ARMEDCONFLICT (theme:ECON_OILPRICE OR theme:ENV_OIL OR theme:ECON_STOCKMARKET)
+      sourcelang:english -domain:iheart.com
   enabled: false
 
+# ~17/h (~200/h for all regulation): SEC rules, tariff and sanctions laws, analyst calls.
 - name: gdelt_regulation
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
@@ -157,9 +164,12 @@
   category: world
   reputation: 0.5
   options:
-    query: "(theme:EPU_CATS_REGULATION OR theme:EPU_CATS_FINANCIAL_REGULATION) sourcelang:english"
+    query: >-
+      theme:EPU_CATS_FINANCIAL_REGULATION (theme:ECON_STOCKMARKET OR theme:ECON_BANKRUPTCY OR
+      theme:ECON_DEBT) sourcelang:english -domain:pr-inside.com -domain:aol.com
   enabled: false
 
+# ~85/h, the loosest of the four: inflation outlooks, but also some politics.
 - name: gdelt_central_banks
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
@@ -167,5 +177,7 @@
   category: world
   reputation: 0.5
   options:
-    query: "(theme:ECON_CENTRALBANK OR theme:EPU_CATS_MONETARY_POLICY) sourcelang:english"
+    query: >-
+      (theme:ECON_CENTRALBANK OR theme:EPU_CATS_MONETARY_POLICY) sourcelang:english
+      -domain:aol.com
   enabled: false

@@ -182,6 +182,7 @@ async def test_items_without_url_are_skipped_and_hash_ignores_key_order():
     [
         (httpx.Response(500, text="oops"), "HTTP 500"),
         (httpx.Response(200, text="Your search contained a keyword that is too short"), "GDELT"),
+        (httpx.Response(200, text="Your query was too short or too long."), "too long"),
         (httpx.Response(200, json=[1, 2]), "unexpected GDELT response"),
         (httpx.Response(200, json={"articles": "x"}), "unexpected GDELT articles"),
     ],
