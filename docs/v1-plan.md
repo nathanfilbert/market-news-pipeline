@@ -16,7 +16,7 @@ The platform has its own price data. v1 is **not** a low-latency trading signal;
 latency is acceptable.
 
 ### Non-goals for v1
-- GDELT ingestion (planned for v1.5 as another collector)
+- GDELT ingestion (scheduled for the v1.5 release, §12)
 - Fetching or scraping full article text from publisher websites (use what feeds/APIs provide)
 - Generative summaries or numeric/date extraction (amounts, unlock dates) — v2
 - Sub-minute latency, streaming infrastructure (Kafka etc.)
@@ -251,6 +251,10 @@ Build the CLI query and FastAPI endpoints. (Alerting was moved out of M5; now un
 **M6 — Run it**
 Build `mnp run` (all loops plus workers), structured JSON logging, and graceful shutdown. Update the README with setup and usage.
 ✅ Runs unattended for 24h locally. `/health` is green, there are no unhandled crashes, and job backlog stays near zero.
+*Status (2026-09-28): the 24-hour check was waived by the owner. The first attempt ran ~10 hours
+across a system suspend (~8 h), a network drop and a feed error; it recovered from each on its
+own with no crashes and an empty backlog, then stopped cleanly on SIGTERM. For continuous use,
+stop the machine sleeping (`systemd-inhibit`) or run on an always-on host.*
 
 ## 10. Engineering rules
 - Never mutate or delete `raw_items`.
@@ -343,8 +347,79 @@ As built (2026-09-28):
   is_promotional < 0.5`); delivery through a Discord or Telegram webhook; once per cluster, not per
   article; retried on webhook failure without duplicates.
 
+### v1.3 release: trading feed API
+Owner decision (2026-09-28). The pipeline's main consumer is the owner's trading platform, which
+today would have to rebuild events from article-level endpoints. This release gives it events it
+can act on directly, under a versioned contract.
+
+- **Events, not articles:** one record per cluster with a stable `event_id`: first-reported time,
+  headline of the representative article, sources and article count so far, the event's
+  classification (event type with probability, impact, sentiment, urgency, relevance, promo),
+  confirmed assets with relevance, and links to its articles. Rules for combining articles into
+  one event summary (e.g. which classification represents the event, how asset relevance
+  combines) are decided and documented in this release.
+- **Revisions:** an event gets a new `revision` whenever it changes (another outlet reports it,
+  a headline is edited, a classification lands); consumers see updates, never duplicates.
+- **Incremental reading:** `GET /v1/feed/events?after=<cursor>` returns new and changed events in
+  a stable order with a cursor, so a consumer polling on any schedule misses nothing and repeats
+  nothing, including after downtime.
+- **Point-in-time queries:** `?as_of=<time>` returns the feed exactly as it was at that moment,
+  using the timestamps already kept separate (published, received, classified, clustered), so
+  backtests can't see news before the pipeline had it. Each event carries its own latency
+  breakdown (published → received → classified → available).
+- **Versioned contract:** `/v1/…` with a documented schema (OpenAPI), clean numeric formatting,
+  and a changelog; breaking changes need a new version.
+- **Owner answers** (2026-09-28): the platform pulls over HTTP to start with; it runs on this
+  machine (so localhost, no authentication); the schema is ours to design and the consumer builds
+  around it. Push delivery can come later on top of the same revision log.
+- **Built** (2026-09-28): an append-only `feed_revisions` table (id = cursor; writes serialized
+  so commits land in cursor order), feed jobs queued in the same transaction as every change,
+  content-hash dedupe, retraction with `superseded_by` after a re-cluster, `/v1/feed/events`,
+  `/v1/feed/snapshot`, `/v1/feed/events/{id}[/revisions]`, `mnp feed build|rebuild`. Schema and
+  combination rules: [feed-v1.md](feed-v1.md). History starts at deployment: `as_of` before then
+  returns nothing rather than a reconstruction that could leak later knowledge.
+- ✅ Met: an event appears once however many outlets report it, with a revision per change
+  (join, edit, classification) and none when nothing changed; paging with a cursor yields every
+  revision exactly once, and new changes appear after a saved cursor; `as_of` returns only
+  revisions available by then (replayed in tests: a pre-classification moment shows the
+  unclassified revision); retracted events leave the snapshot; the table rejects UPDATE and
+  DELETE; schema documented in feed-v1.md and OpenAPI. On the dev database: 368 events built in
+  5 s, 22 with several sources; snapshot queries take 5-40 ms.
+
+### v1.4 release: exchange announcement sources
+Owner decision (2026-09-28). Exchanges' own announcements (listings, delistings, maintenance,
+trading suspensions, deposit/withdrawal halts) often move prices within minutes and appear
+before any news site reports them.
+
+- **Research first:** for each candidate exchange (at least Binance, Coinbase, OKX, Kraken;
+  others by trading relevance), find the official announcement channel (RSS, API or status
+  page), its latency, rate limits and terms of use. Only sources whose terms allow this use are
+  added; unofficial scraping endpoints are avoided.
+- **One collector per channel type** behind the existing collector interface, with the same
+  guarantees (raw items stored exactly as received, checkpoints, backoff, dedupe).
+- Announcements are classified like articles and cluster with news coverage of the same event
+  (e.g. an exchange's listing notice and the news stories about it).
+- ✅ Each added exchange's announcements arrive within its polling interval of publication;
+  fixture-based tests per collector; listings and delistings are classified as such on a
+  labelled sample; an announcement and its news coverage land in one event.
+
+### v1.5 release: GDELT
+GDELT as another collector (planned since v1; confirmed 2026-09-28), filtered to themes relevant
+to markets: sanctions, conflict, regulation and central banks. It adds global coverage from
+sources the RSS and aggregator feeds don't reach.
+
+- Uses the GDELT DOC 2.0 API (free, no key; limited to one request per 5 seconds, and it
+  throttled bursty clients during testing on 2026-09-27, so the collector paces itself
+  conservatively and backs off). Articles come with URL, title, domain, language and time
+  seen, but no summary; they are stored raw like every other source.
+- Theme and keyword queries live in `config/sources.yaml`; results go through normalization,
+  classification and clustering like other articles, so GDELT reports of an event merge with
+  existing coverage.
+- Terms of use and attribution requirements are checked before enabling.
+- ✅ Fixture-based tests; the collector stays within GDELT's rate limits under continuous
+  running; GDELT articles about an event already covered by other sources join that event.
+
 ### Later
-- GDELT collector (filtered by themes: sanctions, conflict, regulation, central banks)
 - Generative model for summaries and amount/date extraction
-- Lower-latency sources (exchange announcement feeds, on-chain alerts, X/Telegram)
-- Price data join for measuring which labels actually predict moves
+- Other lower-latency sources (on-chain alerts, X/Telegram)
+- Price data join for measuring which labels actually predict moves (the platform has prices)

@@ -1,7 +1,7 @@
 """`mnp catch-up`: a one-shot counterpart to `mnp run` for history and gaps.
 
 Fetches everything each source currently offers (paging back where the source supports it),
-processes the normalize and classify queues to completion, then reports coverage per source so
+processes the normalize, classify and feed queues to completion, then reports coverage per source so
 remaining gaps are visible. Feeds only hold their latest items, so how far back this reaches
 depends on the source: about 2-3 days for the crypto feeds, weeks for official and CNBC feeds.
 
@@ -24,7 +24,8 @@ from mnp.classify.service import ClassifyHandler, enqueue_classify
 from mnp.collectors.base import CollectorUnavailable, make_http_client
 from mnp.collectors.service import CollectResult, collect_history, make_collector, sync_sources
 from mnp.config import Settings, SourceConfig, load_sources
-from mnp.jobs import CLASSIFY, NORMALIZE, JobStats, run_pending
+from mnp.feed.build import enqueue_feed, handle_feed_job
+from mnp.jobs import CLASSIFY, FEED, NORMALIZE, JobStats, run_pending
 from mnp.models import Article, ArticleVersion, RawItem, Source
 from mnp.normalize.service import handle_normalize_job
 
@@ -47,6 +48,7 @@ class CatchUpReport:
     normalize: JobStats = field(default_factory=JobStats)
     adopted: int = 0
     classify: JobStats | None = None  # None: not run (no JEV_API_KEY or --no-classify)
+    feed: JobStats = field(default_factory=JobStats)
     coverage: list[SourceCoverage] = field(default_factory=list)
 
 
@@ -62,20 +64,21 @@ async def adopt_history(engine: AsyncEngine, since: datetime, question_set: str)
     """Un-flag backfill articles first published at or after `since`; queue them to classify."""
     first = _first_versions()
     async with engine.begin() as conn:
-        adopted = list(
-            (
-                await conn.execute(
-                    update(Article)
-                    .where(
-                        Article.is_backfill,
-                        Article.id == first.c.article_id,
-                        first.c.published_at >= since,
-                    )
-                    .values(is_backfill=False)
-                    .returning(Article.id)
+        adopted_rows = (
+            await conn.execute(
+                update(Article)
+                .where(
+                    Article.is_backfill,
+                    Article.id == first.c.article_id,
+                    first.c.published_at >= since,
                 )
-            ).scalars()
-        )
+                .values(is_backfill=False)
+                .returning(Article.id, Article.cluster_id)
+            )
+        ).all()
+        adopted = [r.id for r in adopted_rows]
+        for r in adopted_rows:  # now wanted history: it enters the feed
+            await enqueue_feed(conn, r.cluster_id, f"adopt:{r.id}:{r.cluster_id}")
         if adopted:
             latest = (
                 select(func.max(ArticleVersion.id))
@@ -166,6 +169,8 @@ async def catch_up(
                 url=settings.jev_url,
             )
             report.classify = await run_pending(engine, CLASSIFY, ClassifyHandler(classifier))
+
+    report.feed = await run_pending(engine, FEED, handle_feed_job)
 
     report.coverage = await coverage(engine, since, [c.name for c in selected])
     return report

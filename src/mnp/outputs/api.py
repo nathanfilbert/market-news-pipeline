@@ -226,6 +226,10 @@ def create_app(engine: AsyncEngine) -> FastAPI:
     from mnp.dashboard.routes import STATIC_DIR, router
 
     app.include_router(router)
+
+    from mnp.feed.api import router as feed_router
+
+    app.include_router(feed_router)
     app.mount("/ui/static", StaticFiles(directory=STATIC_DIR), name="dashboard-static")
 
     @app.get("/", include_in_schema=False)

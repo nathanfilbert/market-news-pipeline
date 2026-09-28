@@ -11,8 +11,10 @@ from mnp.classify.assets import AssetMatcher, load_matcher
 from mnp.classify.base import ArticleState, Classifier, ClassifierError, check_answers
 from mnp.classify.questions import QuestionSet, QuestionSetError, cached_question_set
 from mnp.config import get_settings
+from mnp.feed.build import enqueue_feed
 from mnp.jobs import CLASSIFY, PermanentJobError, enqueue
 from mnp.models import (
+    Article,
     ArticleAsset,
     ArticleVersion,
     Classification,
@@ -138,6 +140,14 @@ class ClassifyHandler:
         ).scalar_one_or_none()
         if classification_id is None:
             return  # classified concurrently
+        cluster = (
+            await conn.execute(
+                select(Article.cluster_id)
+                .join(ArticleVersion, ArticleVersion.article_id == Article.id)
+                .where(ArticleVersion.id == version_id)
+            )
+        ).scalar_one_or_none()
+        await enqueue_feed(conn, cluster, f"classification:{classification_id}")
 
         if candidates:
             await conn.execute(

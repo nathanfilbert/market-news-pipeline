@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from mnp.config import Settings
+from mnp.feed.build import enqueue_feed
 from mnp.models import Article, ArticleEmbedding, ArticleVersion, Cluster, RawItem, Source
 from mnp.normalize.cluster import (
     _CLUSTER_LOCK_KEY,
@@ -144,6 +145,16 @@ async def recluster(
         if not ids:
             return report
 
+        old_clusters = set(
+            (
+                await conn.execute(
+                    select(Article.cluster_id).where(
+                        Article.id.in_(ids), Article.cluster_id.is_not(None)
+                    )
+                )
+            ).scalars()
+        )
+        run = (await conn.execute(select(func.now()))).scalar_one().isoformat()
         await conn.execute(
             update(Article)
             .where(Article.id.in_(ids))
@@ -179,6 +190,9 @@ async def recluster(
             report.judged += len(decision.judged or [])
             report.fallbacks += decision.fallback
         report.new_clusters = report.articles - report.joined
+        # Former events: the feed retracts them (or revises them, if some articles remain).
+        for cluster_id in old_clusters:
+            await enqueue_feed(conn, cluster_id, f"recluster:{run}:{cluster_id}")
 
         report.multi_source_clusters = (
             await conn.execute(

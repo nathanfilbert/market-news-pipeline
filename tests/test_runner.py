@@ -165,7 +165,7 @@ def test_sigterm_shuts_down_cleanly_with_json_logs(tmp_path, database_url):
     finally:
         proc.kill()
     messages = [entry["msg"] for entry in lines]
-    assert "running 0 collectors (), workers: normalize" in messages
+    assert "running 0 collectors (), workers: normalize, feed" in messages
     assert "SIGTERM received: shutting down gracefully" in messages
     assert "SIGTERM received again: cancelling now" not in messages
     assert messages[-1] == "stopped"

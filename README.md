@@ -2,10 +2,10 @@
 
 Collects crypto and general market news in near real time, stores every raw item untouched,
 classifies each article with [Jev](https://docs.typesafe.ai) (TypeSafe AI's decision model),
-and serves the results through a CLI and a small read-only HTTP API.
+and serves the results through a CLI, a read-only HTTP API and a trading feed of events.
 
-For research, not a trading signal: latency is about a minute. The design, milestones and
-decisions are in [docs/v1-plan.md](docs/v1-plan.md).
+Latency is about a minute. The design, milestones and decisions are in
+[docs/v1-plan.md](docs/v1-plan.md). Next: exchange announcement sources (v1.4) and GDELT (v1.5).
 
 ## How it works
 
@@ -17,12 +17,16 @@ config/sources.yaml ─► collectors (RSS, Finnhub) ─► raw_items         ap
                                                       │ classify job
                                                       ▼
                         classifications + article_assets (Jev)         event type, relevance, sentiment…
+                                                      │ feed job
+                                                      ▼
+                        feed_revisions                                 events, append-only, cursor
                                                       │
-                                   mnp news · read-only API · /health
+                          mnp news · read-only API · /v1/feed · /health
 ```
 
 Stages talk through Postgres: each new raw item queues a normalize job, each new article
-version queues a classify job. Every stage is idempotent, enforced by unique constraints.
+version queues a classify job, and every change to a story queues a feed job. Every stage is
+idempotent, enforced by unique constraints.
 
 ## Setup
 
@@ -101,6 +105,22 @@ are normally treated as stale old news: not classified and hidden from queries
 (`--include-backfill` shows them). `catch-up` treats anything inside `--since` as wanted
 history instead, so it's classified and shown.
 
+## Trading feed
+
+`/v1/feed` serves **events** (one per story, however many outlets report it) for a trading
+platform, under a versioned schema: [docs/feed-v1.md](docs/feed-v1.md).
+
+```bash
+curl -s 'localhost:8000/v1/feed/events?after=0&limit=100'     # every change, in order, with a cursor
+curl -s 'localhost:8000/v1/feed/snapshot?since=24h&asset=BTC&min_impact=0.6'
+curl -s 'localhost:8000/v1/feed/snapshot?as_of=2026-10-01T12:00:00Z'   # as it was then (backtests)
+```
+
+Every change to an event (another outlet, an edited headline, a classification) appends a new
+revision; nothing is rewritten. `mnp run` keeps the feed current; `uv run mnp feed build`
+processes pending updates by hand and `uv run mnp feed rebuild` re-checks every event, e.g. after
+changing `QUESTION_SET`.
+
 ## Dashboard
 
 Open [localhost:8000/ui](http://localhost:8000/ui) while `mnp run` (or `mnp api`) is running. It's
@@ -145,6 +165,7 @@ The API (`uv run mnp api` on its own, or part of `mnp run`) has interactive docs
 | `GET /clusters/{id}` | All articles covering the same story |
 | `GET /raw/{id}` | A raw item exactly as collected |
 | `GET /health` | Source freshness, last errors, job backlog |
+| `GET /v1/feed/…` | The trading feed: see [docs/feed-v1.md](docs/feed-v1.md) |
 
 The API is read-only and has no authentication: keep it on localhost. Finnhub's terms also
 forbid redistributing its data.

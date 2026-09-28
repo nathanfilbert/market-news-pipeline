@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from mnp.classify.service import enqueue_classify
 from mnp.config import Settings, get_settings
+from mnp.feed.build import enqueue_feed
 from mnp.jobs import PermanentJobError
 from mnp.models import Article, ArticleEmbedding, ArticleVersion, RawItem, Source
 from mnp.normalize.canonical_url import canonicalize_url
@@ -146,6 +147,11 @@ async def normalize_raw_item(
     ).scalar_one()
     if not is_backfill:
         await enqueue_classify(conn, [version_id], settings.question_set)
+    if not new_article:  # e.g. an edited headline: the event's feed record changes
+        cluster = (
+            await conn.execute(select(Article.cluster_id).where(Article.id == article_id))
+        ).scalar_one()
+        await enqueue_feed(conn, cluster, f"version:{version_id}")
 
     vector = None
     if settings.cluster_method == "embedding":
