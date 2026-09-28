@@ -36,6 +36,8 @@ log = logging.getLogger(__name__)
 MIN_INTERVAL_SECONDS = 10.0  # GDELT's limit is one request per 5 s; stay well clear of it
 THROTTLED_PAUSE_SECONDS = 120.0  # all GDELT sources wait this long after being throttled
 MAX_RECORDS = 250  # the API's maximum per request
+# GDELT often takes 20 s or more to answer (measured 2026-09-28), beyond the shared 20 s timeout.
+REQUEST_TIMEOUT = httpx.Timeout(60.0, connect=15.0)
 SEENDATE_FORMAT = "%Y%m%dT%H%M%SZ"
 QUERY_DATE_FORMAT = "%Y%m%d%H%M%S"
 
@@ -193,6 +195,7 @@ class GdeltCollector(Collector):
                 "enddatetime": end.strftime(QUERY_DATE_FORMAT),
             },
             headers={"Accept": "application/json"},
+            timeout=REQUEST_TIMEOUT,
         )
         try:
             body = response.json() if response.is_success else None

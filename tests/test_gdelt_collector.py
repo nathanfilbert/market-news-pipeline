@@ -84,6 +84,7 @@ async def test_first_fetch_looks_back_and_sets_checkpoint():
     assert params["maxrecords"] == "250"
     assert params["startdatetime"] == "20260927093000"  # default lookback: 60 minutes
     assert params["enddatetime"] == "20260927103000"
+    assert request.extensions["timeout"]["read"] == 60.0  # GDELT answers slowly
     assert checkpoint == {"seen_through": "20260927T101500Z"}
     assert [p.url for p in payloads] == [a["url"] for a in fixture_articles()]
     first = payloads[0]
