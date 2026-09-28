@@ -3,17 +3,18 @@
 import asyncio
 import logging
 import random
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from mnp.collectors.base import Collector, CollectorUnavailable
+from mnp.collectors.base import Collector, CollectorUnavailable, RawPayload
 from mnp.collectors.finnhub import FinnhubCollector
 from mnp.collectors.rss import RssCollector
 from mnp.config import Settings, SourceConfig
@@ -86,6 +87,30 @@ async def sync_sources(engine: AsyncEngine, sources: Iterable[SourceConfig]) -> 
 
 async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector) -> CollectResult:
     """Fetch one source and store new payloads. Never raises (except on cancellation)."""
+    return await _collect(engine, source_id, collector, collector.fetch)
+
+
+async def collect_history(
+    engine: AsyncEngine, source_id: int, collector: Collector, since: datetime
+) -> CollectResult:
+    """Fetch everything the source offers back to `since` (paging where it can) and store it.
+
+    Ignores and leaves the checkpoint alone, so regular polling carries on unaffected.
+    Never raises (except on cancellation).
+    """
+
+    async def fetch(_checkpoint: Mapping[str, Any]) -> tuple[list[RawPayload], None]:
+        return await collector.fetch_history(since), None
+
+    return await _collect(engine, source_id, collector, fetch)
+
+
+async def _collect(
+    engine: AsyncEngine,
+    source_id: int,
+    collector: Collector,
+    fetch: Callable[[Mapping[str, Any]], Awaitable[tuple[list[RawPayload], dict | None]]],
+) -> CollectResult:
     name = collector.source.name
     try:
         async with engine.connect() as conn:
@@ -95,7 +120,7 @@ async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector
                 )
             ).scalar_one_or_none() or {}
 
-        payloads, new_checkpoint = await collector.fetch(checkpoint)
+        payloads, new_checkpoint = await fetch(checkpoint)
         fetched_at = datetime.now(UTC)
 
         # Payloads, their normalize jobs and the checkpoint commit together, so a crash can't
@@ -124,14 +149,11 @@ async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector
                 new_ids = (await conn.execute(stmt)).scalars().all()
                 inserted = len(new_ids)
                 await enqueue(conn, NORMALIZE, ((str(i), {"raw_item_id": i}) for i in new_ids))
+            state = {"last_success_at": fetched_at, "consecutive_failures": 0}
+            if new_checkpoint is not None:
+                state["checkpoint"] = new_checkpoint
             await conn.execute(
-                update(SourceState)
-                .where(SourceState.source_id == source_id)
-                .values(
-                    checkpoint=new_checkpoint,
-                    last_success_at=fetched_at,
-                    consecutive_failures=0,
-                )
+                update(SourceState).where(SourceState.source_id == source_id).values(**state)
             )
     except asyncio.CancelledError:
         raise

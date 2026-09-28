@@ -472,5 +472,71 @@ def health_command(
         raise typer.Exit(1)
 
 
+@app.command("catch-up")
+def catch_up_command(
+    since: Annotated[
+        str, typer.Option(help="How far back you want history: e.g. 7d, 30d or 2026-09-01.")
+    ] = "7d",
+    source: Annotated[
+        list[str] | None,
+        typer.Option("--source", "-s", help="Source name (repeatable). Default: all enabled."),
+    ] = None,
+    classify: Annotated[bool, typer.Option(help="Classify new articles with Jev.")] = True,
+) -> None:
+    """Fetch everything the sources currently offer, process it, and report coverage.
+
+    One-shot counterpart to `mnp run`: builds an initial dataset or fills gaps after downtime.
+    Feeds only hold their latest items, so how far back it reaches depends on the source.
+    """
+    from mnp.catchup import catch_up
+
+    _setup_logging()
+    window_start = _time_option(since)
+    if source:
+        known = {c.name for c in load_sources()}
+        if unknown := [n for n in source if n not in known]:
+            typer.echo(f"unknown source(s): {', '.join(unknown)}", err=True)
+            raise typer.Exit(2)
+
+    async def main():
+        engine = make_engine()
+        try:
+            return await catch_up(
+                get_settings(), engine, since=window_start, source_names=source, classify=classify
+            )
+        finally:
+            await engine.dispose()
+
+    report = asyncio.run(main())
+    typer.echo(f"\ncatch-up since {report.since:%Y-%m-%d %H:%M} UTC")
+    for r in report.fetched:
+        status = "ok" if r.ok else f"FAILED ({r.error})"
+        typer.echo(f"  {r.source:18} {r.received:4} received, {r.inserted:4} new, {status}")
+    for name, reason in report.skipped.items():
+        typer.echo(f"  {name:18} skipped ({reason})")
+    n = report.normalize
+    typer.echo(f"normalize: {n.done} done, {n.retrying} retrying, {n.failed} failed")
+    typer.echo(f"history adopted (old-news flag cleared inside the window): {report.adopted}")
+    if report.classify is None:
+        reason = "--no-classify" if not classify else "JEV_API_KEY not set"
+        typer.echo(f"classify: skipped ({reason}); jobs stay queued")
+    else:
+        c = report.classify
+        typer.echo(f"classify: {c.done} done, {c.retrying} retrying, {c.failed} failed")
+
+    total_days = (datetime.now(UTC).date() - report.since.date()).days + 1
+    typer.echo(f"\ncoverage ({total_days} days, by publish date):")
+    for cov in report.coverage:
+        oldest = f"back to {cov.oldest:%Y-%m-%d}" if cov.oldest else "nothing in window"
+        empty = f"{len(cov.empty_days)} of {total_days} days without articles"
+        if cov.empty_days and len(cov.empty_days) <= 10:
+            empty += ": " + ", ".join(f"{d:%m-%d}" for d in cov.empty_days)
+        typer.echo(f"  {cov.source:18} {cov.articles:5} articles, {oldest}; {empty}")
+
+    failed = any(not r.ok for r in report.fetched) or report.normalize.failed
+    if failed or (report.classify and report.classify.failed):
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

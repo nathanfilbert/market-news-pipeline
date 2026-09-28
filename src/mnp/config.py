@@ -54,7 +54,7 @@ class SourceConfig(BaseModel):
     reputation: float = Field(ge=0, le=1)
     enabled: bool = True
     language: str = "en"  # default for items that don't declare one
-    options: dict[str, str] = Field(default_factory=dict)  # collector-specific settings
+    options: dict[str, str | int | float | bool] = Field(default_factory=dict)  # per-collector
 
 
 def load_yaml(path: Path) -> Any:

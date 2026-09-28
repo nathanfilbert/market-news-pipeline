@@ -6,11 +6,14 @@ xml:base in scope from ancestor elements are stored alongside, so the item can b
 its own later. Nothing is cleaned or interpreted here.
 """
 
+import asyncio
 import codecs
 import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 from xml.parsers import expat
 
@@ -26,6 +29,8 @@ FEED_ROOTS = {"rss", f"{RDF_NS} RDF", f"{ATOM_NS} feed"}
 ITEM_ELEMENTS = {"item", f"{RSS1_NS} item", f"{ATOM_NS} entry"}
 ID_ELEMENTS = {"guid", f"{ATOM_NS} id"}
 LINK_ELEMENTS = {"link", f"{RSS1_NS} link"}
+DC_NS = "http://purl.org/dc/elements/1.1/"
+DATE_ELEMENTS = {"pubDate", f"{ATOM_NS} published", f"{ATOM_NS} updated", f"{DC_NS} date"}
 
 ACCEPT = (
     "application/rss+xml, application/atom+xml, application/rdf+xml, "
@@ -48,6 +53,22 @@ class FeedItem:
     xml_base: str | None = None
     external_id: str | None = None
     link: str | None = None
+    published: datetime | None = None
+
+
+def parse_feed_date(value: str | None) -> datetime | None:
+    """RFC 822 (RSS) or ISO 8601 (Atom, dc:date) date, as UTC; None if unparseable."""
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        parsed = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return parsed.astimezone(UTC) if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def detect_encoding(data: bytes) -> str:
@@ -111,7 +132,7 @@ def split_feed(data: bytes) -> list[FeedItem]:
                     external_id=attrs.get(f"{RDF_NS} about"),
                 )
         elif depth == item_depth + 1:
-            if name in ID_ELEMENTS or name in LINK_ELEMENTS:
+            if name in ID_ELEMENTS or name in LINK_ELEMENTS or name in DATE_ELEMENTS:
                 capture = name
                 buf.clear()
             elif name == f"{ATOM_NS} link" and item.link is None:
@@ -130,6 +151,8 @@ def split_feed(data: bytes) -> list[FeedItem]:
                 value = "".join(buf).strip() or None
                 if capture in ID_ELEMENTS:
                     item.external_id = value or item.external_id
+                elif capture in DATE_ELEMENTS:
+                    item.published = item.published or parse_feed_date(value)
                 elif item.link is None:
                     item.link = value
                 capture = None
@@ -169,10 +192,13 @@ def item_payload(item: FeedItem, *, feed_url: str, http: dict[str, Any]) -> RawP
         payload_sha256=hashlib.sha256(item.raw).hexdigest(),
         external_id=item.external_id,
         url=item.link,
+        published_at=item.published,
     )
 
 
 class RssCollector(Collector):
+    page_delay = 1.0  # seconds between history pages, to be polite
+
     async def fetch(self, checkpoint: Mapping[str, Any]) -> tuple[list[RawPayload], dict[str, Any]]:
         headers = {"Accept": ACCEPT}
         if etag := checkpoint.get("etag"):
@@ -201,3 +227,39 @@ class RssCollector(Collector):
             if value
         }
         return payloads, new_checkpoint
+
+    async def fetch_history(self, since: datetime) -> list[RawPayload]:
+        """The feed, plus older pages if the source sets `page_param` (e.g. WordPress `paged`).
+
+        Paging stops when a page reaches back past `since`, brings nothing new (the site
+        ignores the parameter or has no more pages), or after `max_pages` (default 20).
+        """
+        param = self.source.options.get("page_param")
+        if not param:
+            return await super().fetch_history(since)
+        max_pages = int(self.source.options.get("max_pages", 20))
+        seen: set[str] = set()
+        payloads: list[RawPayload] = []
+        for page in range(1, max_pages + 1):
+            if page > 1:
+                await asyncio.sleep(self.page_delay)
+            response = await self.client.get(
+                str(self.source.url),
+                params={param: page} if page > 1 else None,
+                headers={"Accept": ACCEPT},
+            )
+            raise_for_status(response)
+            new = [
+                p
+                for item in split_feed(response.content)
+                if (p := item_payload(item, feed_url=str(response.url), http={}))
+                and p.payload_sha256 not in seen
+            ]
+            if not new:
+                break
+            seen.update(p.payload_sha256 for p in new)
+            payloads.extend(new)
+            dates = [p.published_at for p in new if p.published_at]
+            if dates and min(dates) < since:
+                break
+        return payloads

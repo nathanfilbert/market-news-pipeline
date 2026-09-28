@@ -23,6 +23,7 @@ class RawPayload:
     payload_sha256: str
     external_id: str | None = None
     url: str | None = None
+    published_at: datetime | None = None  # if the source gives one; used to stop paging
 
 
 class CollectorError(Exception):
@@ -45,6 +46,15 @@ class Collector(ABC):
     @abstractmethod
     async def fetch(self, checkpoint: Mapping[str, Any]) -> tuple[list[RawPayload], dict[str, Any]]:
         """Return new payloads and the checkpoint to persist once they are stored."""
+
+    async def fetch_history(self, since: datetime) -> list[RawPayload]:
+        """Everything the source currently offers, back to `since` where it can page.
+
+        Ignores the checkpoint (no conditional GET, no cursor), so nothing is skipped as
+        "not modified". The default is one full fetch; collectors that can page override it.
+        """
+        payloads, _ = await self.fetch({})
+        return payloads
 
 
 def user_agent(settings: Settings) -> str:

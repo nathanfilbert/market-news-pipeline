@@ -79,6 +79,28 @@ A source is `stale` after missing 5 polls (at least 10 minutes) and `failing` wh
 fetch errors; the overall status is `degraded` if any enabled source is stale, failing or has
 never run.
 
+## Catch up: initial data and gaps
+
+```bash
+uv run mnp catch-up --since 14d   # fetch everything the sources offer, process it, report coverage
+```
+
+A one-shot counterpart to `mnp run`, for building an initial dataset or filling gaps after
+downtime. It fetches every enabled source once (ignoring "not modified" shortcuts), pages back
+where a source supports it, runs the normalize and classify queues to completion, and prints
+per-source coverage: how far back each source reached and which days have no articles. Safe to
+run while `mnp run` is running.
+
+How far back it can reach depends on the source: feeds only list their latest items, which is
+about 3 days for CoinDesk, Cointelegraph, Decrypt and Finnhub, weeks for the Fed, SEC and CNBC,
+and about 2 weeks for The Block (which supports paging). So a gap from downtime is fully
+recoverable for roughly 2-3 days.
+
+Items published long before they're first seen (more than `BACKFILL_AFTER_DAYS`, default 7)
+are normally treated as stale old news: not classified and hidden from queries
+(`--include-backfill` shows them). `catch-up` treats anything inside `--since` as wanted
+history instead, so it's classified and shown.
+
 ## Query the news
 
 ```bash
