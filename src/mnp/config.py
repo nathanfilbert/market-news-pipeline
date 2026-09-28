@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # Included in the User-Agent; SEC and BLS ask automated clients to identify themselves.
     contact_email: str | None = None
     log_level: str = "INFO"
+    # Dashboard times: "local" (the system's zone), or an IANA name such as UTC.
+    display_timezone: str = "local"
     # Near-duplicate clustering (docs/v1-plan.md §5, v1.2 in §12).
     cluster_method: Literal["embedding", "trigram"] = "embedding"
     cluster_window_hours: float = Field(default=48, gt=0)

@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 from mnp.classify.questions import QuestionSetError, load_question_set
 from mnp.config import get_settings
 from mnp.dashboard import queries as dq
+from mnp.dashboard import tz
 from mnp.outputs.api import Conn
 from mnp.outputs.queries import (
     ArticleFilter,
@@ -39,7 +40,7 @@ router = APIRouter(prefix="/ui", include_in_schema=False)
 
 
 def fmt_dt(value: datetime | None) -> str:
-    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M") if value else "—"
+    return value.astimezone(tz.zone()).strftime("%Y-%m-%d %H:%M") if value else "—"
 
 
 def ago(value: datetime | None) -> str:
@@ -67,6 +68,7 @@ def merge(params: dict[str, Any], **changes: Any) -> dict[str, Any]:
 
 templates.env.filters.update(dt=fmt_dt, ago=ago, pct=pct, num=num, merge=merge)
 templates.env.globals["tojson_pretty"] = lambda v: json.dumps(v, indent=2, default=str)
+templates.env.globals["timezone_label"] = tz.label
 
 
 def render(request: Request, name: str, **context: Any) -> HTMLResponse:
@@ -142,13 +144,13 @@ async def overview(request: Request, conn: Conn) -> HTMLResponse:
     now = datetime.now(UTC)
     since = now - timedelta(days=14)
     qs = get_settings().question_set
-    per_day = await dq.articles_per_day(conn, since, by="published")
+    per_day = await dq.articles_per_day(conn, since, by="published", zone=tz.zone_name())
     summary = await dq.classification_summary(conn, qs, since=now - timedelta(days=7))
     return render(
         request,
         "overview.html",
         health=await health(conn),
-        per_day_chart=stacked_chart(dq.days_between(since, now), per_day),
+        per_day_chart=stacked_chart(dq.days_between(since, now, tz.zone()), per_day),
         event_chart=bar_chart(summary["event_types"]),
         summary=summary,
         question_set=qs,
@@ -180,8 +182,10 @@ async def source_detail(request: Request, conn: Conn, name: str) -> HTMLResponse
         status=status,
         stats=(await dq.source_stats(conn)).get(name, {}),
         coverage_chart=stacked_chart(
-            dq.days_between(since, now),
-            await dq.articles_per_day(conn, since, source=name, by="published"),
+            dq.days_between(since, now, tz.zone()),
+            await dq.articles_per_day(
+                conn, since, source=name, by="published", zone=tz.zone_name()
+            ),
         ),
         raw_items=await dq.source_raw_items(conn, name),
         recent=await search_articles(conn, ArticleFilter(sources=(name,), limit=15)),

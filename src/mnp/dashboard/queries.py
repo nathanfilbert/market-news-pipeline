@@ -1,11 +1,11 @@
 """Aggregate and detail queries for the dashboard (read-only).
 
 Article lists and details reuse mnp.outputs.queries so filters mean the same as in `mnp news`
-and the API. Dates are grouped in UTC.
+and the API. Per-day groupings use the dashboard's display time zone (UTC by default here).
 """
 
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -27,8 +27,9 @@ NOUL_FIELDS = ["is_market_relevant_prob", "is_new_information_prob", "is_promoti
 SCORE_FIELDS = ["sentiment", "impact", "urgency"]
 
 
-def _utc_day(column):
-    return func.date(func.timezone("UTC", column))
+def _day(column, zone: str = "UTC"):
+    """The calendar day of a timestamptz in `zone` (an IANA name)."""
+    return func.date(func.timezone(zone, column))
 
 
 def _first_versions():
@@ -89,13 +90,18 @@ async def source_stats(conn: AsyncConnection) -> dict[str, dict[str, Any]]:
 
 
 async def articles_per_day(
-    conn: AsyncConnection, since: datetime, source: str | None = None, by: str = "first_seen"
+    conn: AsyncConnection,
+    since: datetime,
+    source: str | None = None,
+    by: str = "first_seen",
+    zone: str = "UTC",
 ) -> list[dict[str, Any]]:
-    """Visible (non-backfill) articles per UTC day and source, by first-seen or publish date."""
+    """Visible (non-backfill) articles per day (in `zone`) and source, by first-seen or
+    publish date."""
     first = _first_versions()
     when = Article.first_seen_at if by == "first_seen" else first.c.published_at
     stmt = (
-        select(_utc_day(when).label("day"), Source.name.label("source"), func.count().label("n"))
+        select(_day(when, zone).label("day"), Source.name.label("source"), func.count().label("n"))
         .select_from(Article)
         .join(first, first.c.article_id == Article.id)
         .join(RawItem, RawItem.id == first.c.raw_item_id)
@@ -341,5 +347,8 @@ async def clusters(
     ).all()
 
 
-def days_between(since: datetime, until: datetime) -> list[str]:
-    return [(since + timedelta(days=i)).date().isoformat() for i in range((until - since).days + 1)]
+def days_between(since: datetime, until: datetime, zone: tzinfo | None = None) -> list[str]:
+    """Calendar days from `since` to `until` inclusive, in `zone` (default: their own)."""
+    first = (since.astimezone(zone) if zone else since).date()
+    last = (until.astimezone(zone) if zone else until).date()
+    return [(first + timedelta(days=i)).isoformat() for i in range((last - first).days + 1)]
