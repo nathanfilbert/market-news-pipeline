@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dashboard{% endblock %} · Market News</title>
+  <link rel="stylesheet" href="{{ url_for('dashboard-static', path='vendor/pico-2.1.1.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('dashboard-static', path='app.css') }}">
+  <script src="{{ url_for('dashboard-static', path='vendor/htmx-2.0.11.min.js') }}" defer></script>
+  <script src="{{ url_for('dashboard-static', path='vendor/chart-4.5.1.umd.min.js') }}" defer></script>
+  <script src="{{ url_for('dashboard-static', path='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="container">
+    <nav>
+      <ul><li><a href="/ui" class="brand"><strong>Market News</strong></a></li></ul>
+      <ul>
+        {% set section = request.url.path.split('/')[2] if request.url.path.count('/') > 1 else '' %}
+        {% for path, label in [('', 'Overview'), ('sources', 'Sources'), ('articles', 'Articles'),
+                               ('clusters', 'Clusters'), ('classifications', 'Classifications'),
+                               ('questions', 'Questions')] %}
+          <li><a href="/ui{{ '/' ~ path if path }}" {% if section == path %}aria-current="page"{% endif %}>{{ label }}</a></li>
+        {% endfor %}
+        <li><a href="/docs" class="secondary">API</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container"><small>Read-only · times in UTC</small></footer>
+</body>
+</html>

@@ -1,0 +1,38 @@
+/* Small additions on top of Pico.css */
+:root { --mnp-good: #2e9d5b; --mnp-warn: #c98a00; --mnp-bad: #d2453c; --mnp-muted: var(--pico-muted-color); }
+header nav .brand { text-decoration: none; }
+nav a[aria-current="page"] { font-weight: 600; text-decoration: underline; text-underline-offset: .3em; }
+.muted { color: var(--mnp-muted); }
+.nowrap { white-space: nowrap; }
+table { font-size: .9rem; }
+td, th { vertical-align: top; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.stat { margin: 0; padding: 1rem; }
+.stat strong { display: block; font-size: 1.6rem; }
+.badge, .tag { display: inline-block; font-size: .72rem; padding: .05rem .45rem; border-radius: 1rem;
+  border: 1px solid var(--pico-muted-border-color); color: var(--pico-color); text-decoration: none;
+  white-space: nowrap; }
+.tag { background: var(--pico-code-background-color); margin-right: .25rem; }
+.status-ok { background: color-mix(in srgb, var(--mnp-good) 20%, transparent); border-color: var(--mnp-good); }
+.status-failing, .status-degraded { background: color-mix(in srgb, var(--mnp-bad) 20%, transparent); border-color: var(--mnp-bad); }
+.status-stale, .status-never_run { background: color-mix(in srgb, var(--mnp-warn) 20%, transparent); border-color: var(--mnp-warn); }
+.status-disabled { color: var(--mnp-muted); }
+.bar { display: inline-block; position: relative; width: 4rem; height: .55rem; border-radius: .3rem;
+  background: var(--pico-muted-border-color); vertical-align: middle; overflow: hidden; }
+.bar .fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--pico-primary); }
+.bar.signed::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--pico-color); opacity: .4; }
+.bar .fill.pos { background: var(--mnp-good); }
+.bar .fill.neg { background: var(--mnp-bad); }
+.bar-value { font-size: .78rem; margin-left: .35rem; font-variant-numeric: tabular-nums; }
+.dist td:first-child { width: 45%; }
+.dist .bar { width: 12rem; }
+.dist tr.chosen td { font-weight: 600; }
+del { background: color-mix(in srgb, var(--mnp-bad) 20%, transparent); }
+ins { background: color-mix(in srgb, var(--mnp-good) 25%, transparent); text-decoration: none; }
+pre.payload { max-height: 32rem; overflow: auto; font-size: .78rem; white-space: pre-wrap; word-break: break-word; }
+.chart { position: relative; width: 100%; }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem 1rem; align-items: end; }
+.filters label { font-size: .85rem; margin: 0; }
+.htmx-request.htmx-indicator, .htmx-request .htmx-indicator { opacity: 1; }
+.htmx-indicator { opacity: 0; transition: opacity .2s; }
+.changed { border-left: 3px solid var(--mnp-warn); padding-left: .75rem; }

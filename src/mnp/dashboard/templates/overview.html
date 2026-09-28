@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, article_table, chart %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>Overview</h1>
+  <p>Pipeline {{ status_badge(health.status) }} · checked {{ health.checked_at | dt }}</p>
+</hgroup>
+
+<div class="grid-auto">
+  {% set ok = health.sources | selectattr('status', 'equalto', 'ok') | list | length %}
+  {% set enabled = health.sources | rejectattr('status', 'equalto', 'disabled') | list | length %}
+  <article class="stat"><small>Sources ok</small><strong>{{ ok }} / {{ enabled }}</strong></article>
+  {% for kind, jobs in health.jobs.items() %}
+  <article class="stat"><small>{{ kind }} jobs pending</small><strong>{{ jobs.pending }}</strong>
+    {% if jobs.failed %}<small>{{ jobs.failed }} failed</small>{% endif %}</article>
+  {% endfor %}
+  <article class="stat"><small>Classified (7 days, {{ question_set }})</small><strong>{{ summary.total }}</strong></article>
+</div>
+
+{% set problems = health.sources | selectattr('status', 'in', ['failing', 'stale', 'never_run']) | list %}
+{% if problems %}
+<article>
+  <header><strong>Sources needing attention</strong></header>
+  <ul>{% for s in problems %}
+    <li><a href="/ui/sources/{{ s.name }}">{{ s.name }}</a> {{ status_badge(s.status) }}
+      last success {{ s.last_success_at | ago }}{% if s.last_error %} · <small class="muted">{{ s.last_error }}</small>{% endif %}</li>
+  {% endfor %}</ul>
+</article>
+{% endif %}
+
+<div class="grid">
+  <article>
+    <header><strong>Articles per day</strong> <small class="muted">by publish date, 14 days</small></header>
+    {{ chart('per-day', 'stacked', per_day_chart) }}
+  </article>
+  <article>
+    <header><strong>Event types</strong> <small class="muted">last 7 days</small></header>
+    {{ chart('event-mix', 'bar', event_chart) }}
+  </article>
+</div>
+
+<article>
+  <header><strong>High impact, last 48 hours</strong> <small class="muted">impact ≥ 0.6</small></header>
+  {% if high_impact %}{{ article_table(high_impact) }}{% else %}<p class="muted">Nothing above the threshold.</p>{% endif %}
+</article>
+{% endblock %}

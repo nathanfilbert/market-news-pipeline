@@ -1,0 +1,61 @@
+{% macro status_badge(status) -%}
+  <span class="badge status-{{ status }}">{{ status | replace('_', ' ') }}</span>
+{%- endmacro %}
+
+{% macro bar(value, low=0, high=1, label=None, signed=False) -%}
+  {%- if value is none -%}<span class="muted">—</span>
+  {%- else -%}
+    {%- set frac = ((value - low) / (high - low)) if high != low else 0 -%}
+    <span class="bar {{ 'signed' if signed }}" title="{{ label or value | num }}">
+      {%- if signed -%}
+        {%- set half = (value | abs) * 50 -%}
+        <span class="fill {{ 'neg' if value < 0 else 'pos' }}" style="width: {{ half }}%; {{ 'right: 50%' if value < 0 else 'left: 50%' }}"></span>
+      {%- else -%}
+        <span class="fill" style="width: {{ (frac * 100) | round(1) }}%"></span>
+      {%- endif -%}
+    </span>
+    <span class="bar-value">{{ label or (value | num) }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro tags(assets, threshold=0.5) -%}
+  {%- for a in assets if a.relevance_prob >= threshold -%}
+    <span class="tag" title="relevance {{ a.relevance_prob | pct }}{{ ' (source tag)' if a.via == 'source_tag' }}">{{ a.symbol }}</span>
+  {%- endfor -%}
+{%- endmacro %}
+
+{% macro article_row(a) -%}
+  <tr>
+    <td class="nowrap"><small>{{ a.first_seen_at | dt }}</small>
+      {%- if a.published_at and (a.first_seen_at - a.published_at).total_seconds() > 21600 -%}
+        <br><small class="muted" title="published">pub {{ a.published_at | dt }}</small>
+      {%- endif -%}
+    </td>
+    <td><small>{{ a.source }}</small></td>
+    <td>
+      <a href="/ui/articles/{{ a.id }}">{{ a.headline }}</a>
+      {%- if a.version_no > 1 %} <span class="badge">v{{ a.version_no }}</span>{% endif -%}
+      {%- if a.is_backfill %} <span class="badge status-disabled">backfill</span>{% endif -%}
+      {%- if a.cluster_size > 1 %} <a class="badge" href="/ui/clusters/{{ a.cluster_id }}">{{ a.cluster_size }} sources</a>{% endif %}
+      <div>{{ tags(a.assets) }}</div>
+    </td>
+    {%- set c = a.classification -%}
+    <td class="nowrap">{% if c %}<small>{{ c.event_type | replace('_', ' ') }}</small>{% else %}<small class="muted">—</small>{% endif %}</td>
+    <td>{% if c %}{{ bar(c.impact) }}{% endif %}</td>
+    <td>{% if c %}{{ bar(c.sentiment, -1, 1, signed=True, label=(c.sentiment | num('{:+.2f}'))) }}{% endif %}</td>
+  </tr>
+{%- endmacro %}
+
+{% macro article_table(articles) -%}
+  <div class="overflow-auto">
+  <table class="striped">
+    <thead><tr><th>Seen</th><th>Source</th><th>Headline</th><th>Event</th><th>Impact</th><th>Sentiment</th></tr></thead>
+    <tbody>{% for a in articles %}{{ article_row(a) }}{% endfor %}</tbody>
+  </table>
+  </div>
+{%- endmacro %}
+
+{% macro chart(id, kind, data, height=260) -%}
+  <div class="chart" style="height: {{ height }}px"><canvas data-chart="{{ kind }}" data-source="{{ id }}"></canvas></div>
+  <script type="application/json" id="{{ id }}">{{ data | tojson }}</script>
+{%- endmacro %}

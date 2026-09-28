@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, article_table, chart %}
+{% block title %}{{ source.name }}{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>{{ source.name }}</h1>
+  <p>{{ status_badge(status.status) }} · last success {{ status.last_success_at | ago }} · last new item {{ status.last_new_item_at | ago }}</p>
+</hgroup>
+
+<div class="grid">
+  <article>
+    <header><strong>Settings</strong> <small class="muted">from config/sources.yaml</small></header>
+    <table>
+      <tr><th>Kind</th><td>{{ source.kind }}</td></tr>
+      <tr><th>URL</th><td><code>{{ source.url }}</code></td></tr>
+      <tr><th>Category</th><td>{{ source.category }}</td></tr>
+      <tr><th>Reputation</th><td>{{ source.reputation }}</td></tr>
+      <tr><th>Poll every</th><td>{{ source.poll_seconds }}s</td></tr>
+      <tr><th>Enabled</th><td>{{ 'yes' if source.enabled else 'no' }}</td></tr>
+      <tr><th>Language</th><td>{{ source.language }}</td></tr>
+    </table>
+  </article>
+  <article>
+    <header><strong>Health</strong></header>
+    <table>
+      <tr><th>Status</th><td>{{ status_badge(status.status) }}</td></tr>
+      <tr><th>Last success</th><td>{{ status.last_success_at | dt }}</td></tr>
+      <tr><th>Consecutive failures</th><td>{{ status.consecutive_failures }}</td></tr>
+      <tr><th>Last error</th><td>{% if status.last_error %}<small>{{ status.last_error }}</small><br><small class="muted">{{ status.last_error_at | dt }}</small>{% else %}—{% endif %}</td></tr>
+      <tr><th>Articles / backfill / raw</th><td>{{ stats.articles or 0 }} / {{ stats.backfill or 0 }} / {{ stats.raw_items or 0 }}</td></tr>
+    </table>
+  </article>
+</div>
+
+<article>
+  <header><strong>Coverage</strong> <small class="muted">articles per day by publish date, 30 days</small></header>
+  {{ chart('coverage', 'bar', coverage_chart, 200) }}
+</article>
+
+<article>
+  <header><strong>Latest articles</strong></header>
+  {{ article_table(recent) }}
+  <a href="/ui/articles?source={{ source.name }}">All articles from {{ source.name }} →</a>
+</article>
+
+<article>
+  <header><strong>Latest raw items</strong> <small class="muted">exactly as received</small></header>
+  <table class="striped">
+    <thead><tr><th>ID</th><th>Fetched</th><th>Format</th><th>External ID / URL</th></tr></thead>
+    <tbody>{% for r in raw_items %}
+      <tr><td><a href="/ui/raw/{{ r.id }}">{{ r.id }}</a></td><td class="nowrap">{{ r.fetched_at | dt }}</td><td><small>{{ r.format }}</small></td>
+        <td><small>{{ r.external_id or '' }}</small><br><small class="muted">{{ r.url or '' }}</small></td></tr>
+    {% endfor %}</tbody>
+  </table>
+</article>
+{% endblock %}

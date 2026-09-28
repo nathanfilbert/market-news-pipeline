@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "_macros.html" import article_table %}
+{% block title %}Cluster {{ cluster.id }}{% endblock %}
+{% block content %}
+<hgroup><h1>Cluster {{ cluster.id }}</h1><p>first seen {{ cluster.first_seen_at | dt }} · {{ cluster.articles | length }} articles</p></hgroup>
+{{ article_table(cluster.articles) }}
+{% endblock %}

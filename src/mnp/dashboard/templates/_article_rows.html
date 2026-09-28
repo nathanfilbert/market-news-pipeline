@@ -1,0 +1,12 @@
+{% from "_macros.html" import article_table %}
+{% if error %}<p class="muted"><small>{{ error }}</small></p>{% endif %}
+{% if articles %}
+  {{ article_table(articles) }}
+  {% if articles | length >= filter.limit %}
+    {% set next_params = params | merge(offset=filter.offset + filter.limit) %}
+    <a href="?{{ next_params | urlencode }}" hx-get="/ui/articles?{{ next_params | urlencode }}" hx-target="#article-rows" hx-push-url="true">Next {{ filter.limit }} →</a>
+  {% endif %}
+  {% if filter.offset %}<a href="?{{ params | merge(offset=[0, filter.offset - filter.limit] | max) | urlencode }}">← Previous</a>{% endif %}
+{% else %}
+  <p class="muted">No matching articles.</p>
+{% endif %}

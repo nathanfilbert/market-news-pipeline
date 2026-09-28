@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chart, bar %}
+{% block title %}Classifications{% endblock %}
+{% block content %}
+<h1>Classifications</h1>
+<form class="filters" method="get">
+  <label>Question set
+    <select name="question_set">{% for q in in_use %}<option value="{{ q.question_set }}" {{ 'selected' if q.question_set == question_set }}>{{ q.question_set }} ({{ q.count }})</option>{% endfor %}</select></label>
+  <label>Compare with
+    <select name="compare"><option value="">—</option>{% for q in in_use if q.question_set != question_set %}<option value="{{ q.question_set }}" {{ 'selected' if q.question_set == compare }}>{{ q.question_set }}</option>{% endfor %}</select></label>
+  <label>Window
+    <select name="days">{% for d, label in [(1, '24 hours'), (7, '7 days'), (30, '30 days'), (0, 'all')] %}<option value="{{ d }}" {{ 'selected' if d == days }}>{{ label }}</option>{% endfor %}</select></label>
+  <button type="submit">Show</button>
+</form>
+
+<p>{{ summary.total }} articles classified with <strong>{{ question_set }}</strong> (latest version of each).</p>
+{% if summary.total %}
+<div class="grid">
+  <article><header><strong>Event types</strong></header>{{ chart('events', 'bar', event_chart, 320) }}</article>
+  <article><header><strong>Domains</strong></header>{{ chart('domains', 'bar', domain_chart, 320) }}</article>
+</div>
+<article>
+  <header><strong>Sentiment vs impact</strong> <small class="muted">each dot is an article; click to open</small></header>
+  {{ chart('scatter', 'scatter', scatter_chart, 360) }}
+</article>
+<div class="grid-auto">
+  {% for field, spec in histogram_charts.items() %}
+  <article><header><strong>{{ field | replace('_prob', '') | replace('_', ' ') }}</strong></header>{{ chart('hist-' ~ field, 'bar', spec, 180) }}</article>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if comparison %}
+<article>
+  <header><strong>{{ compare }} → {{ question_set }}</strong> <small class="muted">article versions classified under both</small></header>
+  {% if comparison.count %}
+    <p>{{ comparison.count }} versions · event type agreement <strong>{{ comparison.event_type_agreement | pct }}</strong></p>
+    <table>
+      <thead><tr><th>Answer</th><th>Mean absolute change</th></tr></thead>
+      {% for f, d in comparison.mean_abs_diff.items() %}<tr><td>{{ f | replace('_prob', '') | replace('_', ' ') }}</td><td>{{ d | num('{:.3f}') }}</td></tr>{% endfor %}
+    </table>
+    <details><summary>Biggest changes</summary>
+      <table class="striped">
+        <thead><tr><th>Article</th><th>Event type</th><th>Promo</th><th>Sentiment</th><th>Impact</th></tr></thead>
+        {% for r in comparison.biggest_changes %}
+        <tr><td><a href="/ui/articles/{{ r.article_id }}">{{ r.headline }}</a></td>
+          <td><small>{{ r.event_type[0] }}{% if r.event_type[0] != r.event_type[1] %} → {{ r.event_type[1] }}{% endif %}</small></td>
+          <td><small>{{ r.is_promotional_prob[0] | num }} → {{ r.is_promotional_prob[1] | num }}</small></td>
+          <td><small>{{ r.sentiment[0] | num('{:+.2f}') }} → {{ r.sentiment[1] | num('{:+.2f}') }}</small></td>
+          <td><small>{{ r.impact[0] | num }} → {{ r.impact[1] | num }}</small></td></tr>
+        {% endfor %}
+      </table>
+    </details>
+  {% else %}<p class="muted">No article version has been classified under both sets.</p>{% endif %}
+</article>
+{% endif %}
+{% endblock %}

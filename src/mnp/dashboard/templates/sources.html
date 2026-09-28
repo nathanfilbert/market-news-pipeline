@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
+{% block title %}Sources{% endblock %}
+{% block content %}
+<h1>Sources</h1>
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th>Source</th><th>Status</th><th>Kind</th><th>Poll</th><th>Last success</th><th>Articles</th><th>Backfill</th><th>Raw items</th><th>Published range</th></tr></thead>
+  <tbody>
+  {% for s in sources %}{% set st = stats.get(s.name, {}) %}
+    <tr>
+      <td><a href="/ui/sources/{{ s.name }}">{{ s.name }}</a></td>
+      <td>{{ status_badge(s.status) }}{% if s.consecutive_failures %} <small>×{{ s.consecutive_failures }}</small>{% endif %}</td>
+      <td>{{ s.kind }}</td>
+      <td>{{ s.poll_seconds }}s</td>
+      <td title="{{ s.last_success_at | dt }}">{{ s.last_success_at | ago }}</td>
+      <td>{{ st.articles or 0 }}</td>
+      <td class="muted">{{ st.backfill or 0 }}</td>
+      <td>{{ st.raw_items or 0 }}</td>
+      <td class="nowrap"><small>{{ st.oldest | dt }} → {{ st.newest | dt }}</small></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
