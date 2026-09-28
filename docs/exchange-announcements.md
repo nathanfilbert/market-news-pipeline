@@ -116,6 +116,21 @@ are left out, as the plan requires.
   an eligible country and the ToU check passes. If it goes ahead, it needs a websocket collector
   type with reconnect, signing and a documented gap on disconnect.
 
+## Binance.US (checked after the US decision)
+
+- **No announcement feed.** Listings, delistings and maintenance notices are posted in the
+  [Intercom help center](https://support.binance.us/en/collections/10384537-announcements),
+  which has no RSS or API. The status page (binance.us/status) is a custom page with no feed.
+  Reading either would mean scraping, which the plan rules out.
+- **Nearest official signal:** the public REST API. `GET /api/v3/exchangeInfo` (weight 20)
+  lists every symbol with its status (`TRADING`, `HALT`, `BREAK`, ...), so polling it and
+  diffing finds new listings, delistings and halts; `GET /sapi/v1/system/status` (signed) says
+  whether the exchange is in maintenance. These carry no announcement text and only show a
+  listing once the symbol exists, often after the help-center post.
+- **Not done:** Binance.US API terms were not checked.
+- **Recommendation:** skip for v1.4. If US listings matter later, an `exchangeInfo` diff
+  collector is a small new collector type.
+
 ## Suggested v1.4 order
 
 1. Config-only RSS sources: Kraken asset listings, Kraken status, Coinbase status.
