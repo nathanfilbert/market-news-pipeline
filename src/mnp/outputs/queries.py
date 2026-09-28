@@ -17,6 +17,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from mnp.attribution import attribution_for
 from mnp.config import get_settings
 from mnp.models import (
     Article,
@@ -109,6 +110,7 @@ class ArticleRow:
     # When and how cluster_id was assigned; don't use it (e.g. in a backtest) before then.
     clustered_at: datetime | None = None
     cluster_method: str | None = None
+    attribution: dict[str, Any] | None = None  # citation the source requires, e.g. GDELT
 
 
 CLASSIFICATION_FIELDS = (
@@ -188,6 +190,7 @@ async def search_articles(
             Article.clustered_at,
             Article.cluster_method,
             Source.name.label("source"),
+            Source.kind.label("source_kind"),
             latest.c.id.label("version_id"),
             latest.c.version_no,
             latest.c.headline,
@@ -268,6 +271,7 @@ async def search_articles(
             assets=tags.get(r.c_id, []) if r.c_id is not None else [],
             clustered_at=r.clustered_at,
             cluster_method=r.cluster_method,
+            attribution=attribution_for(r.source_kind),
         )
         for r in rows
     ]
@@ -280,7 +284,7 @@ async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] 
         return None
     versions = (
         await conn.execute(
-            select(ArticleVersion, Source.name.label("source"))
+            select(ArticleVersion, Source.name.label("source"), Source.kind.label("source_kind"))
             .join(RawItem, RawItem.id == ArticleVersion.raw_item_id)
             .join(Source, Source.id == RawItem.source_id)
             .where(ArticleVersion.article_id == article_id)
@@ -328,6 +332,7 @@ async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] 
                 "received_at": v.received_at,
                 "content_hash": v.content_hash,
                 "raw_item_id": v.raw_item_id,
+                "attribution": attribution_for(v.source_kind),
                 "classifications": by_version.get(v.id, []),
             }
             for v in versions
@@ -338,7 +343,7 @@ async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] 
 async def get_raw_item(conn: AsyncConnection, raw_item_id: int) -> dict[str, Any] | None:
     row = (
         await conn.execute(
-            select(RawItem, Source.name.label("source"))
+            select(RawItem, Source.name.label("source"), Source.kind.label("source_kind"))
             .join(Source, Source.id == RawItem.source_id)
             .where(RawItem.id == raw_item_id)
         )
@@ -353,6 +358,7 @@ async def get_raw_item(conn: AsyncConnection, raw_item_id: int) -> dict[str, Any
         "url": row.url,
         "payload_sha256": row.payload_sha256,
         "payload": row.payload,
+        "attribution": attribution_for(row.source_kind),
     }
 
 

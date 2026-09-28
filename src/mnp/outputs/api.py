@@ -1,7 +1,8 @@
 """Read-only HTTP API (FastAPI).
 
 Every request runs in a READ ONLY transaction. There is no authentication: bind to localhost
-(the default in `mnp api`). Finnhub's terms also forbid redistributing its data.
+(the default in `mnp api`). Finnhub's terms also forbid redistributing its data. Articles from
+sources whose terms require a citation (GDELT) carry it in `attribution`.
 """
 
 from collections.abc import AsyncIterator
@@ -32,6 +33,13 @@ class AssetTagOut(BaseModel):
     symbol: str
     relevance_prob: float
     via: str
+
+
+class AttributionOut(BaseModel):
+    """A citation the source's terms require wherever its data is used or redistributed."""
+
+    text: str
+    url: str
 
 
 class ClassificationOut(BaseModel):
@@ -68,6 +76,7 @@ class ArticleOut(BaseModel):
     received_at: datetime
     classification: ClassificationOut | None
     assets: list[AssetTagOut]
+    attribution: AttributionOut | None = None
 
     @classmethod
     def from_row(cls, row: ArticleRow) -> "ArticleOut":
@@ -88,6 +97,7 @@ class ArticleOut(BaseModel):
             received_at=row.received_at,
             classification=row.classification,
             assets=[AssetTagOut(**vars(a)) for a in row.assets],
+            attribution=row.attribution,
         )
 
 
@@ -119,6 +129,7 @@ class VersionOut(BaseModel):
     content_hash: str
     raw_item_id: int
     raw_url: str
+    attribution: AttributionOut | None = None
     classifications: list[ClassificationDetail]
 
 
@@ -149,6 +160,7 @@ class RawItemOut(BaseModel):
     url: str | None
     payload_sha256: str
     payload: dict[str, Any]
+    attribution: AttributionOut | None = None
 
 
 async def _connection(request: Request) -> AsyncIterator[AsyncConnection]:

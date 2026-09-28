@@ -13,10 +13,12 @@ from mnp.collectors.gdelt import GdeltCollector, RequestPacer
 from mnp.collectors.rss import RssCollector
 from mnp.collectors.service import collect_once, make_collector, run_source_loop, sync_sources
 from mnp.config import Settings
-from mnp.jobs import NORMALIZE, run_pending
-from mnp.models import Article
+from mnp.feed.build import handle_feed_job
+from mnp.jobs import FEED, NORMALIZE, run_pending
+from mnp.models import Article, FeedRevision
 from mnp.normalize.item import parse_payload
 from mnp.normalize.service import handle_normalize_job
+from mnp.outputs.api import create_app
 from tests.conftest import fixture_bytes, source
 
 NOW = datetime(2026, 9, 27, 10, 30, tzinfo=UTC)
@@ -261,9 +263,8 @@ def test_parse_gdelt_payload():
     assert other.published_at is None
 
 
-@pytest.mark.db
-async def test_gdelt_article_joins_existing_coverage(engine, server, client):
-    """A GDELT report of an event other sources already cover lands in the same cluster."""
+async def collect_rss_and_gdelt(engine, server, client) -> None:
+    """Source b (RSS) and a GDELT query both report the central bank minutes."""
     gd = source(
         "gdelt",
         kind="gdelt",
@@ -280,11 +281,58 @@ async def test_gdelt_article_joins_existing_coverage(engine, server, client):
     assert result.ok and result.inserted == 3
     await run_pending(engine, NORMALIZE, handle_normalize_job)
 
+
+@pytest.mark.db
+async def test_gdelt_article_joins_existing_coverage(engine, server, client):
+    """A GDELT report of an event other sources already cover lands in the same cluster."""
+    await collect_rss_and_gdelt(engine, server, client)
+
     async with engine.connect() as conn:
         rows = dict((await conn.execute(select(Article.canonical_url, Article.cluster_id))).all())
     minutes = [c for url, c in rows.items() if "minutes" in url]
     assert len(minutes) == 2 and minutes[0] == minutes[1]
     assert len(set(rows.values())) == len(rows) - 1  # nothing else merged
+
+
+GDELT_CITATION = {"text": "The GDELT Project", "url": "https://www.gdeltproject.org/"}
+
+
+@pytest.mark.db
+async def test_gdelt_articles_carry_attribution(engine, server, client):
+    await collect_rss_and_gdelt(engine, server, client)
+    await run_pending(engine, FEED, handle_feed_job)
+    transport = httpx.ASGITransport(app=create_app(engine))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as api:
+        articles = (await api.get("/articles", params={"since": "30d"})).json()["articles"]
+        by_source = {}
+        for a in articles:
+            by_source.setdefault(a["source"], []).append(a)
+        assert all(a["attribution"] == GDELT_CITATION for a in by_source["gdelt"])
+        assert all(a["attribution"] is None for a in by_source["b"])
+
+        gdelt_id = by_source["gdelt"][0]["id"]
+        detail = (await api.get(f"/articles/{gdelt_id}")).json()
+        [version] = detail["versions"]
+        assert version["attribution"] == GDELT_CITATION
+        raw = (await api.get(version["raw_url"])).json()
+        assert raw["attribution"] == GDELT_CITATION
+        page = (await api.get(f"/ui/articles/{gdelt_id}")).text
+        assert 'href="https://www.gdeltproject.org/"' in page
+
+        events = (await api.get("/v1/feed/snapshot", params={"since": "30d"})).json()["events"]
+    minutes = next(e for e in events if len(e["articles"]) == 2)
+    assert minutes["attributions"] == [GDELT_CITATION]
+    cited = {a["source"]: a["attribution"] for a in minutes["articles"]}
+    assert cited == {"b": None, "gdelt": GDELT_CITATION}
+    rss_only = next(e for e in events if e["sources"] == ["b"])
+    assert rss_only["attributions"] == []
+
+    # Events without a citation store no attribution keys, so their revisions are unchanged.
+    async with engine.connect() as conn:
+        payloads = (await conn.execute(select(FeedRevision.payload))).scalars().all()
+    plain = [p for p in payloads if p["sources"] == ["b"]]
+    assert plain and all("attributions" not in p for p in plain)
+    assert all("attribution" not in a for p in plain for a in p["articles"])
 
 
 @pytest.mark.db

@@ -26,6 +26,7 @@
   {% endif %}
   {% if v.summary %}<p>{{ v.summary }}</p>{% endif %}
   {% if v.body %}<details><summary>Body ({{ v.body | length }} characters)</summary><p>{{ v.body }}</p></details>{% endif %}
+  {% if v.attribution %}<p><small>Source: <a href="{{ v.attribution.url }}" rel="noopener noreferrer" target="_blank">{{ v.attribution.text }}</a></small></p>{% endif %}
   <p><small class="muted">author {{ v.author or '—' }} · language {{ v.language }} · content hash <code>{{ v.content_hash[:12] }}</code></small></p>
 
   {% if v.classifications %}

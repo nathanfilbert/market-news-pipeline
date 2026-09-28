@@ -431,8 +431,9 @@ As built (2026-09-28, not yet enabled):
   "Please limit requests" text pauses every GDELT source for 2 minutes and backs the source off.
 - **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
   any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
-  link to https://www.gdeltproject.org/. Cited in the README; downstream users of GDELT articles
-  must cite it too.
+  link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the
+  citation in the API (`attribution`), the feed (`attribution` per article, `attributions` per
+  event) and the dashboard, so downstream users can pass it on.
 - **Before enabling:** the theme queries were
   written from GDELT's documentation without a live test (the dev container can't reach GDELT),
   so run each once with `mnp collect --source <name> --once` and look at volume and relevance.

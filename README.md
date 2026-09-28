@@ -178,8 +178,9 @@ forbid redistributing its data.
   share one request every 10 seconds, within GDELT's limit of one per 5.
 - **GDELT attribution:** GDELT data is free for any use, but [its terms](https://www.gdeltproject.org/about.html#termsofuse)
   require any use or redistribution to cite the GDELT Project and link to
-  https://www.gdeltproject.org/. Anything built on this pipeline's GDELT articles (API or feed
-  consumers included) must carry that citation too; their `source` starts with `gdelt_`.
+  https://www.gdeltproject.org/. Anything built on this pipeline's GDELT articles must carry that
+  citation too: the API, the feed and the dashboard show it with each GDELT article
+  (`attribution`) and each event that includes one (`attributions`).
 - **Questions:** `config/questions/<version>.yaml`. Never edit a question set in place: copy it
   to a new version, then `uv run mnp reclassify --question-set v1.2 [--since 2026-10-01]` labels
   stored articles with it, side by side with the old labels. Set `QUESTION_SET` to make it the
