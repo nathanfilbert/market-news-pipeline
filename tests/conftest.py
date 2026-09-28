@@ -36,6 +36,7 @@ def _no_backfill_by_default(monkeypatch):
     monkeypatch.setenv("CLUSTER_CONFIRM_SIMILARITY", "0.4")
     monkeypatch.setenv("CLUSTER_FALLBACK_SIMILARITY", "0.5")
     monkeypatch.setenv("CLUSTER_CONFIRM_WITH_JEV", "false")
+    monkeypatch.setenv("DISPLAY_TIMEZONE", "UTC")  # results don't depend on the machine's zone
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

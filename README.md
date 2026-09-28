@@ -120,6 +120,8 @@ read-only and lets you browse and visualize everything the pipeline has stored:
 
 It uses no external services: its CSS and JavaScript (Pico.css, htmx, Chart.js) are served from
 the app itself.
+Times are shown in your system's time zone (set `DISPLAY_TIMEZONE`, e.g. `UTC`, to change it);
+the API and database always use UTC.
 
 ## Query the news
 
