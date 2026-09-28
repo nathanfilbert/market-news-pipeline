@@ -132,8 +132,11 @@
 # Polled every 15 minutes: GDELT publishes in 15-minute batches, and it throttled the owner's IP
 # heavily in testing, so polling more often only adds failed requests (nothing is lost; the next
 # poll re-reads from the checkpoint).
-# Disabled until the owner switches them on; try one with
-#   mnp collect --source gdelt_conflict_oil --once
+# Live results (2026-09-28, articles kept per hour): conflict x oil ~38, sanctions x oil ~5,
+# sanctions x currency ~4, regulation ~1; conflict x stocks and central banks were never measured
+# (GDELT blocked every try). The owner enabled the two oil pairs only: fewer sources means fewer
+# throttled requests. Try a disabled one with
+#   mnp collect --source gdelt_sanctions_fx --once
 
 - name: gdelt_conflict_oil
   kind: gdelt
@@ -143,7 +146,6 @@
   reputation: 0.5
   options:
     query: theme:ARMEDCONFLICT theme:ECON_OILPRICE sourcelang:english -domain:iheart.com
-  enabled: false
 
 - name: gdelt_conflict_stocks
   kind: gdelt
@@ -163,7 +165,6 @@
   reputation: 0.5
   options:
     query: theme:SANCTIONS theme:ECON_OILPRICE sourcelang:english -domain:iheart.com
-  enabled: false
 
 - name: gdelt_sanctions_fx
   kind: gdelt

@@ -419,7 +419,7 @@ sources the RSS and aggregator feeds don't reach.
 - ✅ Fixture-based tests; the collector stays within GDELT's rate limits under continuous
   running; GDELT articles about an event already covered by other sources join that event.
 
-As built (2026-09-28, not yet enabled):
+As built (2026-09-28; conflict x oil and sanctions x oil enabled, the other four disabled):
 - **Collector** (`collectors/gdelt.py`, kind `gdelt`): one source per query in
   `config/sources.yaml` (`gdelt_sanctions`, `gdelt_conflict`, `gdelt_regulation`,
   `gdelt_central_banks`, GKG themes, English-language coverage, polled every 5 minutes). Each poll

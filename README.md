@@ -175,8 +175,9 @@ forbid redistributing its data.
 - **Sources:** `config/sources.yaml`. RSS feeds, Finnhub and GDELT queries, each with a poll
   interval and a reputation. Verify a feed works before adding it. GDELT sources (conflict and
   sanctions paired with oil, stocks or currencies; financial regulation; central banks and
-  interest rates) are disabled until switched on. They keep only articles whose headline has a
-  market keyword, and share one request every 10 seconds, within GDELT's limit of one per 5.
+  interest rates). Only the two oil pairs are enabled. They keep only articles whose headline has
+  a market keyword, poll every 15 minutes, and share one request every 10 seconds, within
+  GDELT's limit of one per 5.
 - **GDELT attribution:** GDELT data is free for any use, but [its terms](https://www.gdeltproject.org/about.html#termsofuse)
   require any use or redistribution to cite the GDELT Project and link to
   https://www.gdeltproject.org/. Anything built on this pipeline's GDELT articles must carry that
