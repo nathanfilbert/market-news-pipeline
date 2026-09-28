@@ -1,3 +1,4 @@
+import json
 import shutil
 
 import httpx
@@ -118,3 +119,28 @@ def test_reclassify_rejects_unknown_question_set(cli_env):
     result = runner.invoke(cli.app, ["reclassify", "--question-set", "v9.9"])
     assert result.exit_code == 2
     assert "question set 'v9.9' not found" in result.output
+
+
+@pytest.mark.db
+def test_news_command(cli_env, sync_engine, monkeypatch):
+    monkeypatch.setenv("JEV_API_KEY", "sk-test")
+    monkeypatch.setenv("CONFIG_DIR", str(cli_env))
+    get_settings.cache_clear()
+    runner.invoke(cli.app, ["collect", "--once", "--source", "good"])
+    runner.invoke(cli.app, ["normalize"])
+    runner.invoke(cli.app, ["classify"])
+
+    result = runner.invoke(cli.app, ["news", "--since", "1h", "--source", "good"])
+    assert result.exit_code == 0, result.output
+    assert "[good]" in result.stdout
+    assert "Protocol X patches bug after $12M exploit" in result.stdout
+    assert "https://news.example.com/tech/2026/09/27/protocol-x-exploit" in result.stdout
+
+    as_json = runner.invoke(cli.app, ["news", "--json", "--limit", "1"])
+    record = json.loads(as_json.stdout.splitlines()[0])
+    assert record["classification"]["model_version"] == "jev-1.13.0"
+
+    none = runner.invoke(cli.app, ["news", "--event-type", "exchange_delisting"])
+    assert "no matching articles" in none.stdout
+    bad = runner.invoke(cli.app, ["news", "--since", "soonish"])
+    assert bad.exit_code == 2
