@@ -122,7 +122,10 @@ are left out, as the plan requires.
 2. OKX announcements collector (small REST poller behind the collector interface).
 3. A websocket collector type, if Binance is cleared; Coinbase `status` rides on it.
 
-## Open questions for the owner
+## Owner decisions (2026-09-28)
 
-- Which country the pipeline runs from (decides Binance and OKX eligibility).
-- Whether the Kraken ToS reading above is acceptable for a personal, polite-rate RSS poll.
+- The pipeline runs from the **US**. That rules out Binance (Binance.com does not serve US
+  persons) and OKX's global API (US users are served by OKX US, whose announcements API was not
+  checked here). Both are dropped from v1.4 unless that changes.
+- **Kraken** goes first: the asset-listings and status RSS feeds are added to
+  `config/sources.yaml` as config-only sources (listings every 60 s, status every 120 s).
