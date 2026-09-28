@@ -17,7 +17,7 @@ from mnp.jobs import CLASSIFY, NORMALIZE, run_pending
 from mnp.models import ArticleVersion
 from mnp.normalize.service import handle_normalize_job
 from mnp.outputs.api import create_app
-from mnp.outputs.queries import search_articles
+from mnp.outputs.queries import asset_counts, search_articles
 from tests.conftest import fixture_bytes, source
 
 pytestmark = pytest.mark.db
@@ -92,6 +92,32 @@ async def test_articles_blank_and_bad_filters(ui):
     assert len(links(blank, "/ui/articles/")) == 5
     bad = await page(ui, "/ui/articles", params={"since": "whenever"})
     assert "Ignored filters" in bad
+
+
+async def test_articles_asset_dropdown_column_and_chart(ui, engine):
+    html = await page(ui, "/ui/articles")
+    assert '<select name="asset">' in html
+    assert '<option value="BTC" >BTC · Bitcoin</option>' in html
+    assert '<optgroup label="equity">' in html
+    assert "<th>Assets</th>" in html and '<td class="assets"><span class="tag"' in html
+    assert 'id="asset-chart"' in html
+    async with engine.connect() as conn:
+        f, _ = ui_filter({})
+        counts = dict(await asset_counts(conn, f))
+        rows = await search_articles(conn, f)
+    tagged = [
+        r for r in rows if any(t.symbol == "BTC" and t.relevance_prob >= 0.5 for t in r.assets)
+    ]
+    assert counts["BTC"] == len(tagged) >= 1
+    assert "/ui/articles?asset=BTC" in html  # bars link to the filtered list
+
+    filtered = await page(ui, "/ui/articles", params={"asset": "BTC"})
+    assert '<option value="BTC" selected>' in filtered
+    assert len(links(filtered, "/ui/articles/")) == len(tagged)
+
+    # A typed-in list (from an old URL) is kept as its own option rather than dropped.
+    typed = await page(ui, "/ui/articles", params={"asset": "btc,eth"})
+    assert "<option selected>BTC,ETH</option>" in typed
 
 
 async def test_articles_htmx_partial(ui):

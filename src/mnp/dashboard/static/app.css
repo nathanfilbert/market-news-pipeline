@@ -13,6 +13,7 @@ td, th { vertical-align: top; }
   border: 1px solid var(--pico-muted-border-color); color: var(--pico-color); text-decoration: none;
   white-space: nowrap; }
 .tag { background: var(--pico-code-background-color); margin-right: .25rem; }
+td.assets { min-width: 5rem; }
 .status-ok { background: color-mix(in srgb, var(--mnp-good) 20%, transparent); border-color: var(--mnp-good); }
 .status-failing, .status-degraded { background: color-mix(in srgb, var(--mnp-bad) 20%, transparent); border-color: var(--mnp-bad); }
 .status-stale, .status-never_run { background: color-mix(in srgb, var(--mnp-warn) 20%, transparent); border-color: var(--mnp-warn); }
