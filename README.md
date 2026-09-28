@@ -5,7 +5,8 @@ classifies each article with [Jev](https://docs.typesafe.ai) (TypeSafe AI's deci
 and serves the results through a CLI and a small read-only HTTP API.
 
 For research, not a trading signal: latency is about a minute. The design, milestones and
-decisions are in [docs/v1-plan.md](docs/v1-plan.md). Alerting is planned for the v1.1 release.
+decisions are in [docs/v1-plan.md](docs/v1-plan.md). Next: a read-only dashboard (v1.1), then
+alerting (v1.2).
 
 ## How it works
 
