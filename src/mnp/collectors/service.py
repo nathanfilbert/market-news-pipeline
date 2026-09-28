@@ -137,7 +137,13 @@ async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector
         raise
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"[:MAX_ERROR_LENGTH]
-        log.warning("collect failed for %s: %s", name, error, exc_info=True)
+        log.warning(
+            "collect failed for %s: %s",
+            name,
+            error,
+            exc_info=True,
+            extra={"source": name, "error": error},
+        )
         failures = await _record_failure(engine, source_id, error)
         return CollectResult(
             source=name,
@@ -146,7 +152,13 @@ async def collect_once(engine: AsyncEngine, source_id: int, collector: Collector
             retry_after=getattr(exc, "retry_after", None),
         )
 
-    log.info("collected %s: %d received, %d new", name, len(payloads), inserted)
+    log.info(
+        "collected %s: %d received, %d new",
+        name,
+        len(payloads),
+        inserted,
+        extra={"source": name, "received": len(payloads), "new": inserted},
+    )
     return CollectResult(source=name, received=len(payloads), inserted=inserted)
 
 

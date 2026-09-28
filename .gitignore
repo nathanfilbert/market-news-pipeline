@@ -14,3 +14,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Runtime logs (mnp run)
+*.jsonl
+*.log
