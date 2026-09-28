@@ -40,6 +40,19 @@ uv run mnp classify --show                  # process the queue, print results f
 uv run mnp reclassify --question-set v1.1 --since 2026-10-01
 ```
 
+Query the results:
+
+```bash
+uv run mnp news --since 1h --asset BTC --event-type hack_exploit --min-impact 0.6
+uv run mnp news --domain macro --min-relevance 0.8 --json   # one JSON object per line
+uv run mnp api                                             # read-only API on 127.0.0.1:8000
+```
+
+The API serves `GET /articles` (same filters as `mnp news`), `/articles/{id}` (every version,
+classification and a link to the raw item), `/clusters/{id}`, `/raw/{id}` and `/health`
+(per-source freshness, last error and job backlog). Interactive docs are at `/docs`. It has no
+authentication, so keep it on localhost; Finnhub's terms also forbid redistributing its data.
+
 Questions live in `config/questions/<version>.yaml`; change wording only in a new version, which
 `reclassify` runs side by side with the old one. Taggable assets live in `config/assets.yaml`.
 
