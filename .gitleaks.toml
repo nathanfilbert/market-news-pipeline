@@ -1,0 +1,20 @@
+# Secret scanning (gitleaks), used by the pre-commit hook and CI. Extends gitleaks' default
+# rules with this project's credentials, which the defaults don't recognize.
+title = "market-news-pipeline"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "mnp-provider-api-key"
+description = "Jev (TypeSafe) or Finnhub API key assigned in code or config"
+regex = '''(?i)\b(?:JEV|TYPESAFE|FINNHUB)[A-Z0-9_]*(?:KEY|TOKEN|SECRET)\b\s*[:=]\s*["']?([A-Za-z0-9_\-\.]{16,})'''
+secretGroup = 1
+keywords = ["jev", "typesafe", "finnhub"]
+
+[[rules]]
+id = "env-style-secret-assignment"
+description = "Long value assigned to a *_API_KEY / *_SECRET / *_TOKEN / *_PASSWORD variable"
+regex = '''\b[A-Z][A-Z0-9_]*(?:API_KEY|SECRET|SECRET_KEY|TOKEN|PASSWORD)\b\s*[:=]\s*["']?([A-Za-z0-9_\-\.\/+=]{20,})'''
+secretGroup = 1
+keywords = ["api_key", "secret", "token", "password"]

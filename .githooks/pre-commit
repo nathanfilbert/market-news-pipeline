@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Git pre-commit hook: refuse commits that contain credentials.
+
+Enable once per clone:  git config core.hooksPath .githooks
+
+Three checks on the staged files:
+1. File names: .env and variants (except .env.example), editor swap/backup files, key files.
+2. Raw bytes: provider key assignments (Jev/TypeSafe/Finnhub), including in binary files,
+   which gitleaks skips. A vim swap file of .env is binary; that is how keys leaked once.
+3. gitleaks with .gitleaks.toml, if installed (https://github.com/gitleaks/gitleaks).
+
+`--tracked` checks every tracked file, and gitleaks scans all of git history (used by CI). Set
+MNP_SKIP_GITLEAKS=1 to skip check 3. Bypass in an emergency with `git commit --no-verify`,
+never to commit a real secret.
+"""
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+BLOCKED_NAMES = [  # first match names the problem, so the most specific come first
+    (re.compile(r"\.sw[a-p]$"), "vim swap file"),
+    (re.compile(r"~$"), "editor backup file"),
+    (re.compile(r"(^|/)#[^/]*#$"), "emacs autosave file"),
+    (re.compile(r"(^|/)\.env$"), ".env file"),
+    (re.compile(r"(^|/)\.env\.(?!example$)[^/]+$"), ".env variant"),
+    (re.compile(r"\.(pem|key|p12|pfx|jks)$"), "private key / keystore"),
+    (re.compile(r"(^|/)id_(rsa|dsa|ecdsa|ed25519)$"), "SSH private key"),
+]
+PROVIDER_KEY = re.compile(
+    rb"(?i)\b(?:jev|typesafe|finnhub)[a-z0-9_]*(?:key|token|secret)\b[\"']?\s*[:=]\s*[\"']?"
+    rb"[a-z0-9_\-.]{16,}"
+)
+
+
+def git(*args: str) -> bytes:
+    return subprocess.run(["git", *args], check=True, capture_output=True).stdout
+
+
+def files(tracked: bool) -> list[str]:
+    out = git("ls-files", "-z") if tracked else git(
+        "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"
+    )
+    return [f for f in out.decode().split("\0") if f]
+
+
+def content(path: str, tracked: bool) -> bytes:
+    return git("show", f"{'HEAD' if tracked else ''}:{path}")
+
+
+def main() -> int:
+    tracked = "--tracked" in sys.argv[1:]
+    problems = []
+    for path in files(tracked):
+        for pattern, what in BLOCKED_NAMES:
+            if pattern.search(path):
+                problems.append(f"{path}: {what} must not be committed")
+                break
+        else:
+            if PROVIDER_KEY.search(content(path, tracked)):
+                problems.append(f"{path}: contains what looks like a Jev/Finnhub API key")
+
+    if problems:
+        print("Commit blocked: possible credentials.", file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        print(
+            "Unstage them (git restore --staged <file>); secrets belong in .env only.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if os.environ.get("MNP_SKIP_GITLEAKS") != "1":
+        if shutil.which("gitleaks") is None:
+            print(
+                "warning: gitleaks not installed; only name and provider-key checks ran "
+                "(https://github.com/gitleaks/gitleaks)",
+                file=sys.stderr,
+            )
+        else:
+            # --tracked: every commit in history (never the working tree, which holds .env).
+            mode = ["git"] if tracked else ["git", "--pre-commit", "--staged"]
+            cmd = ["gitleaks", *mode, "--config", ".gitleaks.toml", "--redact", "--no-banner"]
+            if subprocess.run(cmd).returncode != 0:
+                print("Blocked: gitleaks found possible secrets (see above).", file=sys.stderr)
+                return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
