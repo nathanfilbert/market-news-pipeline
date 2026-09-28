@@ -134,13 +134,20 @@
   options: {query: "theme:SANCTIONS sourcelang:english"}
   enabled: false
 
+# Conflict alone returned ~230 articles per half hour in live testing (2026-09-28), mostly not
+# market news (travel lists, campus politics). Only conflict coverage that also touches oil, gas,
+# shipping blockades, currencies or stock markets.
 - name: gdelt_conflict
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
   poll_seconds: 300
   category: world
   reputation: 0.5
-  options: {query: "theme:ARMEDCONFLICT sourcelang:english"}
+  options:
+    query: >-
+      theme:ARMEDCONFLICT (theme:ECON_OILPRICE OR theme:ENV_OIL OR theme:ENV_NATURALGAS OR
+      theme:BLOCKADE OR theme:ECON_CURRENCY_EXCHANGE_RATE OR theme:ECON_STOCKMARKET)
+      sourcelang:english
   enabled: false
 
 - name: gdelt_regulation
