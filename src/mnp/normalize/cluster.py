@@ -1,6 +1,8 @@
 """Near-duplicate clustering (v1): headline trigram similarity within a time window.
 
-Only articles from *other* sources are matched. Within one source, similar headlines are
+Only articles from *other* sources are matched, and never backfill articles (old news first
+seen now), which also get a cluster of their own: first_seen_at says nothing about when their
+story happened. Within one source, similar headlines are
 almost always distinct events from a template ("Federal Reserve Board announces approval of
 application by <bank>"), and merging them would suppress per-cluster alerts.
 
@@ -28,12 +30,13 @@ async def assign_cluster(
     seen_at: datetime,
     threshold: float,
     window: timedelta,
+    isolated: bool = False,
 ) -> int:
     """Put a new article into the most similar recent cluster, or a new one. Returns its id."""
     await conn.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _CLUSTER_LOCK_KEY})
 
     match = None
-    if headline:
+    if headline and not isolated:
         # `%` uses the trigram index with this threshold; similarity() re-checks and ranks.
         await conn.execute(
             text("SELECT set_config('pg_trgm.similarity_threshold', :t, true)"),
@@ -51,6 +54,7 @@ async def assign_cluster(
                     Article.id != article_id,
                     RawItem.source_id != source_id,
                     Article.cluster_id.is_not(None),
+                    Article.is_backfill.is_(False),
                     Article.first_seen_at.between(seen_at - window, seen_at + window),
                 )
                 .order_by(similarity.desc(), Article.first_seen_at)

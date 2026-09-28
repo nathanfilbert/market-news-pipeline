@@ -29,7 +29,11 @@ class NormalizeOutcome:
 async def normalize_raw_item(
     conn: AsyncConnection, raw_item_id: int, settings: Settings | None = None
 ) -> NormalizeOutcome:
-    """Idempotent: running it again for the same raw item writes nothing."""
+    """Idempotent: running it again for the same raw item writes nothing.
+
+    Backfill articles (published long before we first saw them) are stored but not classified,
+    and get a cluster of their own.
+    """
     settings = settings or get_settings()
     raw = (
         await conn.execute(
@@ -62,10 +66,18 @@ async def normalize_raw_item(
         headline=headline, summary=parsed.summary, body=parsed.body, canonical_url=canonical_url
     )
 
+    # Old news we are only now seeing: decided when the article is first created.
+    is_backfill = parsed.published_at is not None and (
+        raw.fetched_at - parsed.published_at > timedelta(days=settings.backfill_after_days)
+    )
     article_id = (
         await conn.execute(
             pg_insert(Article)
-            .values(canonical_url=canonical_url, first_seen_at=raw.fetched_at)
+            .values(
+                canonical_url=canonical_url,
+                first_seen_at=raw.fetched_at,
+                is_backfill=is_backfill,
+            )
             .on_conflict_do_nothing()
             .returning(Article.id)
         )
@@ -73,11 +85,13 @@ async def normalize_raw_item(
     new_article = article_id is not None
     if not new_article:
         # Row lock serializes version numbering for this article.
-        article_id = (
+        article_id, is_backfill = (
             await conn.execute(
-                select(Article.id).where(Article.canonical_url == canonical_url).with_for_update()
+                select(Article.id, Article.is_backfill)
+                .where(Article.canonical_url == canonical_url)
+                .with_for_update()
             )
-        ).scalar_one()
+        ).one()
         await conn.execute(
             update(Article)
             .where(Article.id == article_id)
@@ -120,7 +134,8 @@ async def normalize_raw_item(
             .returning(ArticleVersion.id)
         )
     ).scalar_one()
-    await enqueue_classify(conn, [version_id], settings.question_set)
+    if not is_backfill:
+        await enqueue_classify(conn, [version_id], settings.question_set)
 
     cluster_id = None
     if new_article:
@@ -132,6 +147,7 @@ async def normalize_raw_item(
             seen_at=raw.fetched_at,
             threshold=settings.cluster_similarity_threshold,
             window=timedelta(hours=settings.cluster_window_hours),
+            isolated=is_backfill,
         )
     return NormalizeOutcome(article_id, new_article, version_no, cluster_id)
 

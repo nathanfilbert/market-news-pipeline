@@ -3,7 +3,8 @@
 An article is shown as its latest version, with that version's classification from one
 classifier and question set (default: Jev and the active QUESTION_SET). Articles whose latest
 version isn't classified yet still appear, unless a classification filter is used. Time filters
-and ordering use `articles.first_seen_at`, when the story first reached us.
+and ordering use `articles.first_seen_at`, when the story first reached us. Backfill articles
+(old news we only just saw) are hidden unless `include_backfill` is set.
 """
 
 import re
@@ -64,6 +65,7 @@ class ArticleFilter:
     min_impact: float | None = None
     min_relevance: float | None = None  # is_market_relevant_prob
     min_asset_relevance: float = DEFAULT_MIN_ASSET_RELEVANCE
+    include_backfill: bool = False
     classifier: str = "jev"
     question_set: str = field(default_factory=lambda: get_settings().question_set)
     limit: int = 50
@@ -94,6 +96,7 @@ class ArticleRow:
     first_seen_at: datetime
     cluster_id: int | None
     cluster_size: int
+    is_backfill: bool
     source: str
     version_id: int
     version_no: int
@@ -178,6 +181,7 @@ async def search_articles(
             Article.canonical_url,
             Article.first_seen_at,
             Article.cluster_id,
+            Article.is_backfill,
             Source.name.label("source"),
             latest.c.id.label("version_id"),
             latest.c.version_no,
@@ -205,6 +209,8 @@ async def search_articles(
     )
     if article_ids is not None:
         stmt = stmt.where(Article.id.in_(article_ids))
+    if not f.include_backfill:
+        stmt = stmt.where(Article.is_backfill.is_(False))
     if f.since:
         stmt = stmt.where(Article.first_seen_at >= f.since)
     if f.until:
@@ -241,6 +247,7 @@ async def search_articles(
             first_seen_at=r.first_seen_at,
             cluster_id=r.cluster_id,
             cluster_size=sizes.get(r.cluster_id, 1),
+            is_backfill=r.is_backfill,
             source=r.source,
             version_id=r.version_id,
             version_no=r.version_no,
@@ -297,6 +304,7 @@ async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] 
         "canonical_url": article.canonical_url,
         "first_seen_at": article.first_seen_at,
         "cluster_id": article.cluster_id,
+        "is_backfill": article.is_backfill,
         "versions": [
             {
                 "id": v.id,
