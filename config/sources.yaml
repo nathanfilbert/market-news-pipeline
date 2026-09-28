@@ -1,7 +1,7 @@
 # News sources (docs/v1-plan.md §4). Each URL was fetched and parsed successfully on
 # 2026-09-27 before being added. reputation (0-1) is our prior, used downstream.
 #
-# category: crypto | official | markets
+# category: crypto | official | markets | exchange
 
 # --- Crypto ---
 - name: coindesk
@@ -67,6 +67,24 @@
   poll_seconds: 120
   category: markets
   reputation: 0.8
+
+# --- Exchange announcements (v1.4, docs/exchange-announcements.md) ---
+# Kraken's Global Terms ban bots on its content without written consent; the owner accepted
+# polling these published feeds at a polite rate for personal use (2026-09-28).
+# Not yet fetched from the pipeline machine: run `mnp check` / watch the first polls.
+- name: kraken_listings
+  kind: rss
+  url: https://blog.kraken.com/category/product/asset-listings/feed
+  poll_seconds: 60
+  category: exchange
+  reputation: 1.0
+
+- name: kraken_status
+  kind: rss
+  url: https://status.kraken.com/history.rss
+  poll_seconds: 120
+  category: exchange
+  reputation: 1.0
 
 # --- Aggregator ---
 # Finnhub market news (news only, no price data): https://finnhub.io/docs/api/market-news.
