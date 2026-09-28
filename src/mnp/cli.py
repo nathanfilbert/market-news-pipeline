@@ -3,7 +3,6 @@
 import asyncio
 import dataclasses
 import json
-import logging
 import signal
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -26,6 +25,7 @@ from mnp.collectors.service import (
 from mnp.config import get_settings, load_sources
 from mnp.db import make_engine
 from mnp.jobs import CLASSIFY, NORMALIZE, run_pending
+from mnp.logs import setup_logging
 from mnp.models import (
     Article,
     ArticleAsset,
@@ -37,18 +37,19 @@ from mnp.models import (
     Source,
 )
 from mnp.normalize.service import handle_normalize_job
-from mnp.outputs.queries import ArticleFilter, ArticleRow, parse_time, search_articles
+from mnp.outputs.queries import (
+    ArticleFilter,
+    ArticleRow,
+    health,
+    parse_time,
+    search_articles,
+)
 
 app = typer.Typer(no_args_is_help=True, help="Market news pipeline.")
 
 
-def _setup_logging() -> None:
-    logging.basicConfig(
-        level=get_settings().log_level.upper(),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-    # Per-request lines are noise; collectors log one summary per poll.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+def _setup_logging(fmt: str = "text") -> None:
+    setup_logging(get_settings().log_level, fmt)  # type: ignore[arg-type]
 
 
 @app.command()
@@ -403,6 +404,66 @@ def api(
 
     _setup_logging()
     uvicorn.run(create_app(make_engine()), host=host, port=port, log_level="info")
+
+
+@app.command()
+def run(
+    api: Annotated[bool, typer.Option(help="Serve the read-only API in the same process.")] = True,
+    host: Annotated[str, typer.Option(help="API bind address (no authentication).")] = (
+        "127.0.0.1"
+    ),
+    port: int = 8000,
+    log_format: Annotated[str, typer.Option(help="json or text.")] = "json",
+) -> None:
+    """Run everything: collectors, normalize and classify workers, and the API. Ctrl-C stops."""
+    from mnp.runner import run as run_pipeline
+
+    if log_format not in ("json", "text"):
+        raise typer.BadParameter("--log-format must be json or text")
+    _setup_logging(log_format)
+
+    async def main() -> None:
+        engine = make_engine()
+        try:
+            await run_pipeline(get_settings(), engine, api=api, host=host, port=port)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(main())
+
+
+@app.command("health")
+def health_command(
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full report as JSON.")] = False,
+) -> None:
+    """Source freshness and job backlog (same as GET /health). Exits 1 when degraded."""
+
+    async def fetch() -> dict:
+        engine = make_engine()
+        try:
+            async with engine.connect() as conn:
+                return await health(conn)
+        finally:
+            await engine.dispose()
+
+    report = asyncio.run(fetch())
+    if as_json:
+        typer.echo(json.dumps(report, default=str, indent=2))
+    else:
+        typer.echo(f"status: {report['status']}")
+        for src in report["sources"]:
+            last = src["last_success_at"]
+            last = last.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S") if last else "never"
+            error = f"  last error: {src['last_error']}" if src["status"] == "failing" else ""
+            typer.echo(f"  {src['name']:18} {src['status']:9} last success {last}{error}")
+        for kind, jobs in report["jobs"].items():
+            age = jobs["oldest_pending_age_seconds"]
+            oldest = f", oldest {age}s" if age is not None else ""
+            typer.echo(
+                f"  jobs {kind:13} {jobs['pending']} pending{oldest}, {jobs['failed']} failed"
+            )
+    if report["status"] != "ok":
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

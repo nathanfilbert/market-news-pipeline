@@ -84,10 +84,12 @@ async def run_pending(
     *,
     limit: int | None = None,
     max_attempts: int = MAX_ATTEMPTS,
+    stop: asyncio.Event | None = None,
 ) -> JobStats:
-    """Process due jobs of `kind` one at a time until none are left (or `limit` is reached)."""
+    """Process due jobs of `kind` one at a time until none are left, `limit` is reached or
+    `stop` is set (checked between jobs)."""
     stats = JobStats()
-    while limit is None or stats.processed < limit:
+    while (limit is None or stats.processed < limit) and not (stop and stop.is_set()):
         async with engine.begin() as conn:
             job = (
                 await conn.execute(
@@ -114,7 +116,13 @@ async def run_pending(
                 ):
                     values = {"status": "failed", "finished_at": func.now()}
                     stats.failed += 1
-                    log.error("%s job %d failed permanently: %s", kind, job.id, error)
+                    log.error(
+                        "%s job %d failed permanently: %s",
+                        kind,
+                        job.id,
+                        error,
+                        extra={"job_id": job.id, "job_kind": kind, "attempts": attempts},
+                    )
                 else:
                     seconds = retry_delay(attempts)
                     if retryable and exc.retry_after:
@@ -122,7 +130,19 @@ async def run_pending(
                     delay = timedelta(seconds=seconds)
                     values = {"run_after": func.now() + delay}
                     stats.retrying += 1
-                    log.warning("%s job %d failed (attempt %d): %s", kind, job.id, attempts, error)
+                    log.warning(
+                        "%s job %d failed (attempt %d): %s",
+                        kind,
+                        job.id,
+                        attempts,
+                        error,
+                        extra={
+                            "job_id": job.id,
+                            "job_kind": kind,
+                            "attempts": attempts,
+                            "retry_in_s": round(delay.total_seconds()),
+                        },
+                    )
                 values |= {"attempts": attempts, "locked_at": func.now(), "last_error": error}
             else:
                 values = {
