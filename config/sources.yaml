@@ -129,13 +129,16 @@
 # ("too short or too long"), so keep each short. On top of the query, the collector keeps only
 # articles whose title mentions a market keyword (DEFAULT_TITLE_KEYWORDS in collectors/gdelt.py;
 # override with options.title_keywords).
+# Polled every 15 minutes: GDELT publishes in 15-minute batches, and it throttled the owner's IP
+# heavily in testing, so polling more often only adds failed requests (nothing is lost; the next
+# poll re-reads from the checkpoint).
 # Disabled until the owner switches them on; try one with
 #   mnp collect --source gdelt_conflict_oil --once
 
 - name: gdelt_conflict_oil
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
-  poll_seconds: 300
+  poll_seconds: 900
   category: world
   reputation: 0.5
   options:
@@ -145,7 +148,7 @@
 - name: gdelt_conflict_stocks
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
-  poll_seconds: 300
+  poll_seconds: 900
   category: world
   reputation: 0.5
   options:
@@ -155,7 +158,7 @@
 - name: gdelt_sanctions_oil
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
-  poll_seconds: 300
+  poll_seconds: 900
   category: world
   reputation: 0.5
   options:
@@ -165,7 +168,7 @@
 - name: gdelt_sanctions_fx
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
-  poll_seconds: 300
+  poll_seconds: 900
   category: world
   reputation: 0.5
   options:
@@ -177,7 +180,7 @@
 - name: gdelt_regulation
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
-  poll_seconds: 300
+  poll_seconds: 900
   category: world
   reputation: 0.5
   options:
@@ -189,7 +192,7 @@
 - name: gdelt_central_banks
   kind: gdelt
   url: https://api.gdeltproject.org/api/v2/doc/doc
-  poll_seconds: 300
+  poll_seconds: 900
   category: world
   reputation: 0.5
   options:

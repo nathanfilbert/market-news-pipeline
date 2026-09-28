@@ -51,10 +51,11 @@ QUERY_DATE_FORMAT = "%Y%m%d%H%M%S"
 # source with `options.title_keywords` (comma-separated; empty turns the filter off).
 DEFAULT_TITLE_KEYWORDS = (
     # energy and shipping
-    "oil", "crude", "brent", "opec", "gas", "lng", "fuel", "diesel", "gasoline", "petrol",
+    "oil", "crude", "brent", "opec", "gas", "lng", "lpg", "kerosene", "fuel", "diesel",
+    "gasoline", "petrol",
     "energy", "pipeline", "refiner*", "tanker", "shipping", "strait", "hormuz",
     # trade and sanctions
-    "tariff*", "trade*", "export*", "import*", "embargo*", "sanction*", "blockade*",
+    "tariff*", "trade*", "export*", "import*", "embargo*", "sanction*", "blockade*", "excise",
     # macro, rates and money
     "inflation*", "rate", "interest rate", "yield", "bond", "treasur*", "debt", "default*",
     "bank", "central bank", "fed", "ecb", "gdp", "econom*", "recession*", "currenc*",

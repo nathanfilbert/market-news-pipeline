@@ -445,6 +445,9 @@ As built (2026-09-28, not yet enabled):
   currency, central banks x interest rates; regulation unchanged), and the collector drops
   articles whose title has no market keyword (`DEFAULT_TITLE_KEYWORDS`, overridable per source)
   before they are stored or classified. The checkpoint still advances past dropped articles.
+  Live: conflict x oil price kept ~38/h of ~47/h (dropped mostly diplomatic updates); LPG and
+  kerosene were added after two fuel-tax headlines were dropped. Sources poll every 15 minutes,
+  GDELT's batch interval, since the owner's IP is throttled heavily (8 tries for one query).
 - **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
   any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
   link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the
