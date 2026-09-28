@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Clusters{% endblock %}
+{% block content %}
+<hgroup><h1>Clusters</h1><p>Stories covered by more than one article, most recently active first.</p></hgroup>
+<form class="filters" method="get">
+  <label>Window <select name="days" onchange="this.form.submit()">{% for d in [1, 7, 30, 365] %}<option value="{{ d }}" {{ 'selected' if d == days }}>{{ d }} day{{ 's' if d > 1 }}</option>{% endfor %}</select></label>
+</form>
+{% if clusters %}
+<table class="striped">
+  <thead><tr><th>Story</th><th>Articles</th><th>Sources</th><th>Last seen</th></tr></thead>
+  {% for c in clusters %}
+  <tr><td><a href="/ui/clusters/{{ c.id }}">{{ c.headline }}</a></td><td>{{ c.size }}</td>
+    <td>{% for s in c.sources %}<span class="tag">{{ s }}</span>{% endfor %}</td><td class="nowrap">{{ c.last_seen | ago }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">No multi-article clusters in this window.</p>{% endif %}
+{% endblock %}

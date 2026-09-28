@@ -213,6 +213,19 @@ def create_app(engine: AsyncEngine) -> FastAPI:
     )
     app.state.engine = engine
 
+    # The read-only dashboard (v1.1) lives under /ui; "/" sends people there.
+    from fastapi.responses import RedirectResponse
+    from fastapi.staticfiles import StaticFiles
+
+    from mnp.dashboard.routes import STATIC_DIR, router
+
+    app.include_router(router)
+    app.mount("/ui/static", StaticFiles(directory=STATIC_DIR), name="dashboard-static")
+
+    @app.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        return RedirectResponse("/ui")
+
     @app.get("/articles", response_model=ArticleList)
     async def list_articles(conn: Conn, f: Filter) -> ArticleList:
         """Newest first. Each article is shown as its latest version and classification."""

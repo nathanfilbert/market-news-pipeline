@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Articles{% endblock %}
+{% block content %}
+<h1>Articles</h1>
+<form class="filters" hx-get="/ui/articles" hx-target="#article-rows" hx-push-url="true"
+      hx-trigger="change, submit" hx-indicator="#loading">
+  <label>Since <input name="since" value="{{ params.get('since', '') }}" placeholder="e.g. 24h, 7d"></label>
+  <label>Source
+    <select name="source"><option value="">All</option>
+      {% for s in sources %}<option {{ 'selected' if params.get('source') == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
+  <label>Event type
+    <select name="event_type"><option value="">All</option>
+      {% for e in event_types %}<option value="{{ e }}" {{ 'selected' if params.get('event_type') == e }}>{{ e | replace('_', ' ') }}</option>{% endfor %}
+    </select></label>
+  <label>Domain
+    <select name="domain"><option value="">All</option>
+      {% for d in ['crypto', 'equities', 'macro', 'other'] %}<option {{ 'selected' if params.get('domain') == d }}>{{ d }}</option>{% endfor %}
+    </select></label>
+  <label>Asset <input name="asset" value="{{ params.get('asset', '') }}" placeholder="BTC"></label>
+  <label>Min impact <input type="number" name="min_impact" min="0" max="1" step="0.1" value="{{ params.get('min_impact', '') }}"></label>
+  <label>Min relevance <input type="number" name="min_relevance" min="0" max="1" step="0.1" value="{{ params.get('min_relevance', '') }}"></label>
+  <label><input type="checkbox" name="include_backfill" value="true" role="switch" {{ 'checked' if params.get('include_backfill') == 'true' }}> Include backfill</label>
+</form>
+<p id="loading" class="htmx-indicator muted"><small>Loading…</small></p>
+<div id="article-rows">{% include "_article_rows.html" %}</div>
+{% endblock %}

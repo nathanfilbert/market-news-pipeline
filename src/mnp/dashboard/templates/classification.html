@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import bar %}
+{% block title %}Classification {{ c.id }}{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>Classification {{ c.id }}</h1>
+  <p><a href="/ui/articles/{{ row.article_id }}">{{ row.headline }}</a> (v{{ row.version_no }})<br>
+    {{ c.classifier }} · {{ c.model_version }} · question set <a href="/ui/questions?version={{ c.question_set_version }}">{{ c.question_set_version }}</a>
+    · {{ c.classified_at | dt }} · {{ c.latency_ms }} ms
+    {% if response and response.usage %} · {{ response.usage.input_tokens }} input tokens{% endif %}</p>
+</hgroup>
+
+{% for item in items %}{% set q = item.question %}{% set ans = item.answer %}
+<article>
+  <header>
+    <strong><code>{{ item.id }}</code></strong> <span class="badge">{{ ans.type }}</span>
+    {% if ans.confidence is defined %} · confidence {{ ans.confidence | pct }}{% endif %}
+  </header>
+  {% if q.instructions %}
+    <p><small class="muted">{% if q.instructions is mapping %}{{ q.instructions.question or '' }}{% if q.instructions.asset %} — asset: {{ q.instructions.asset.name }} ({{ q.instructions.asset.symbol }}){% endif %}{% else %}{{ q.instructions }}{% endif %}</small></p>
+  {% endif %}
+  {% if ans.type == 'noul' %}
+    {{ bar(ans.noul, label=(ans.noul | pct(1))) }} <small class="muted">probability of yes</small>
+  {% elif ans.type == 'choice' %}
+    <table class="dist">
+      {% for option, p in ans.probabilities | dictsort(by='value', reverse=True) %}
+        <tr class="{{ 'chosen' if option == ans.choice }}"><td>{{ option | replace('_', ' ') }}</td><td>{{ bar(p, label=(p | pct(1))) }}</td></tr>
+      {% endfor %}
+    </table>
+  {% elif ans.type == 'score' %}
+    <p>Score <strong>{{ ans.score | num }}</strong> of {{ (ans.legend | length) - 1 }}</p>
+    <table class="dist">
+      {% for level, p in ans.probabilities | dictsort %}
+        <tr class="{{ 'chosen' if p == ans.probabilities.values() | max }}"><td><small>{{ level }}. {{ ans.legend[level] }}</small></td><td>{{ bar(p, label=(p | pct(1))) }}</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+</article>
+{% endfor %}
+
+{% if assets %}
+<article>
+  <header><strong>Asset tags</strong></header>
+  <table>{% for a in assets %}
+    <tr><td>{{ a.symbol }} <small class="muted">{{ a.name }}</small></td><td><small>{{ a.candidate_via | replace('_', ' ') }}</small></td><td>{{ bar(a.relevance_prob, label=(a.relevance_prob | pct(1))) }}</td></tr>
+  {% endfor %}</table>
+</article>
+{% endif %}
+
+<details><summary>State sent to the classifier</summary><pre class="payload">{{ tojson_pretty(state) }}</pre></details>
+<details><summary>Full response, exactly as returned</summary><pre class="payload">{{ tojson_pretty(response) }}</pre></details>
+{% endblock %}

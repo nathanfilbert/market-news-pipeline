@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Raw item {{ item.id }}{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>Raw item {{ item.id }}</h1>
+  <p><a href="/ui/sources/{{ item.source }}">{{ item.source }}</a> · fetched {{ item.fetched_at | dt }} · format <code>{{ item.payload.format }}</code><br>
+    <small class="muted">sha256 <code>{{ item.payload_sha256 }}</code></small></p>
+</hgroup>
+<article>
+  <header><strong>Produced</strong></header>
+  {% if outputs %}<ul>{% for o in outputs %}<li><a href="/ui/articles/{{ o.article_id }}">{{ o.headline }}</a> (version {{ o.version_no }})</li>{% endfor %}</ul>
+  {% else %}<p class="muted">No new article version: its normalized content matched one already stored, or it isn't normalized yet.</p>{% endif %}
+</article>
+{% if item.payload.format == 'xml_item' %}
+<article>
+  <header><strong>Item XML, exactly as received</strong> <small class="muted">{{ item.payload.encoding }}</small></header>
+  <pre class="payload">{{ item.payload.xml }}</pre>
+</article>
+{% elif item.payload.item is defined %}
+<article>
+  <header><strong>Item, as received</strong></header>
+  <pre class="payload">{{ tojson_pretty(item.payload.item) }}</pre>
+</article>
+{% endif %}
+<details><summary>Full stored payload (JSON)</summary><pre class="payload">{{ tojson_pretty(item.payload) }}</pre></details>
+{% endblock %}

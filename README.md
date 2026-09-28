@@ -102,6 +102,26 @@ are normally treated as stale old news: not classified and hidden from queries
 (`--include-backfill` shows them). `catch-up` treats anything inside `--since` as wanted
 history instead, so it's classified and shown.
 
+## Dashboard
+
+Open [localhost:8000/ui](http://localhost:8000/ui) while `mnp run` (or `mnp api`) is running. It's
+read-only and lets you browse and visualize everything the pipeline has stored:
+
+- **Overview:** pipeline health, job backlog, articles per day by source, event-type mix, recent
+  high-impact articles.
+- **Sources:** settings, health, coverage by day and the latest raw items for each source.
+- **Articles:** the cleaned-up output with the same filters as `mnp news`; each article shows every
+  version (headline edits highlighted), its classifications, asset tags and same-story articles
+  from other sources.
+- **Classifications:** Jev's full answer to every question (probability distributions,
+  confidence, the exact state sent), plus aggregate charts and a comparison between question-set
+  versions.
+- **Questions:** each question set, with changes from the previous version highlighted.
+- **Raw items:** payloads exactly as received. **Clusters:** stories covered by several sources.
+
+It uses no external services: its CSS and JavaScript (Pico.css, htmx, Chart.js) are served from
+the app itself.
+
 ## Query the news
 
 ```bash

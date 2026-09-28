@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import bar, status_badge, article_table %}
+{% block title %}{{ article.versions[-1].headline }}{% endblock %}
+{% block content %}
+{% set latest = article.versions[-1] %}
+<hgroup>
+  <h1>{{ latest.headline }}</h1>
+  <p>
+    <a href="{{ article.canonical_url }}" rel="noopener noreferrer" target="_blank">{{ article.canonical_url }}</a><br>
+    first seen {{ article.first_seen_at | dt }} · {{ article.versions | length }} version{{ 's' if article.versions | length > 1 }}
+    {% if article.is_backfill %} · <span class="badge status-disabled">backfill (old news at first sight)</span>{% endif %}
+    {% if cluster and cluster.articles | length > 1 %} · <a href="/ui/clusters/{{ cluster.id }}">cluster of {{ cluster.articles | length }}</a>{% endif %}
+  </p>
+</hgroup>
+
+{% for v in article.versions | reverse %}
+<article>
+  <header>
+    <strong>Version {{ v.version_no }}</strong> · {{ v.source }} · received {{ v.received_at | dt }}
+    · published {{ v.published_at | dt }} · <a href="/ui/raw/{{ v.raw_item_id }}">raw item {{ v.raw_item_id }}</a>
+  </header>
+  {% if v.headline_diff %}
+    <p><small class="muted">Headline change from v{{ v.version_no - 1 }}:</small><br>
+    {% for op, text in v.headline_diff %}{% if op == 'delete' %}<del>{{ text }}</del>{% elif op == 'insert' %}<ins>{{ text }}</ins>{% else %}{{ text }}{% endif %} {% endfor %}</p>
+  {% endif %}
+  {% if v.summary %}<p>{{ v.summary }}</p>{% endif %}
+  {% if v.body %}<details><summary>Body ({{ v.body | length }} characters)</summary><p>{{ v.body }}</p></details>{% endif %}
+  <p><small class="muted">author {{ v.author or '—' }} · language {{ v.language }} · content hash <code>{{ v.content_hash[:12] }}</code></small></p>
+
+  {% if v.classifications %}
+  <div class="overflow-auto">
+  <table>
+    <thead><tr><th>Classification</th><th>Event type</th><th>Domain</th><th>Relevant</th><th>New info</th><th>Promo</th><th>Sentiment</th><th>Impact</th><th>Urgency</th><th>Assets</th></tr></thead>
+    <tbody>{% for c in v.classifications %}
+      <tr>
+        <td class="nowrap"><a href="/ui/classifications/{{ c.id }}">{{ c.question_set_version }}</a><br><small class="muted">{{ c.model_version }}</small></td>
+        <td><small>{{ (c.event_type or '') | replace('_', ' ') }}</small><br><small class="muted">{{ c.event_type_prob | pct }}</small></td>
+        <td><small>{{ c.domain }}</small></td>
+        <td>{{ bar(c.is_market_relevant_prob) }}</td>
+        <td>{{ bar(c.is_new_information_prob) }}</td>
+        <td>{{ bar(c.is_promotional_prob) }}</td>
+        <td>{{ bar(c.sentiment, -1, 1, signed=True, label=(c.sentiment | num('{:+.2f}'))) }}</td>
+        <td>{{ bar(c.impact) }}</td>
+        <td>{{ bar(c.urgency) }}</td>
+        <td>{% for a in c.assets %}<span class="tag" title="{{ a.via }}">{{ a.symbol }} {{ a.relevance_prob | pct }}</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}</tbody>
+  </table>
+  </div>
+  {% elif not article.is_backfill %}
+  <p class="muted"><small>Not classified yet.</small></p>
+  {% endif %}
+</article>
+{% endfor %}
+
+{% if cluster and cluster.articles | length > 1 %}
+<article>
+  <header><strong>Same story from other sources</strong></header>
+  {{ article_table(cluster.articles | rejectattr('id', 'equalto', article.id) | list) }}
+</article>
+{% endif %}
+{% endblock %}

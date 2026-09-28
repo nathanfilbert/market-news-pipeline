@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Questions {{ version }}{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>Question set {{ version }}</h1>
+  <p>{% for v in versions %}<a href="?version={{ v }}" {% if v == version %}aria-current="page"{% endif %}>{{ v }}</a>{% if v == active %} <span class="badge status-ok">active</span>{% endif %}{{ ' · ' if not loop.last }}{% endfor %}
+  {% if previous_version %}<br><small class="muted">Highlighted: changed since {{ previous_version }}.</small>{% endif %}</p>
+</hgroup>
+
+{% for qid, q in data.questions.items() %}
+<article class="{{ 'changed' if qid in changed }}">
+  <header><strong><code>{{ qid }}</code></strong> <span class="badge">{{ q.type }}</span>
+    {% if q.range %} <small class="muted">mapped to {{ q.range[0] }} … {{ q.range[1] }}</small>{% endif %}
+    {% if qid in changed %} <span class="badge status-stale">changed</span>{% endif %}</header>
+  <p>{{ q.instructions }}</p>
+  {% if q.type == 'choice' %}
+    <table>{% for option, desc in q.criteria.items() %}<tr><td class="nowrap"><code>{{ option }}</code></td><td><small>{{ desc or '' }}</small></td></tr>{% endfor %}</table>
+  {% elif q.type == 'score' %}
+    <table>{% for level in q.criteria %}<tr><td>{{ loop.index0 }}</td><td><small>{{ level }}</small></td></tr>{% endfor %}</table>
+  {% elif q.criteria %}
+    <table>{% for k, desc in q.criteria.items() %}<tr><td><code>{{ k }}</code></td><td><small>{{ desc }}</small></td></tr>{% endfor %}</table>
+  {% endif %}
+  {% if qid in changed and previous and previous.questions.get(qid) %}
+    <details><summary>As in {{ previous_version }}</summary><pre class="payload">{{ tojson_pretty(previous.questions[qid]) }}</pre></details>
+  {% endif %}
+</article>
+{% endfor %}
+
+{% if data.asset_question %}
+<article class="{{ 'changed' if 'asset_question' in changed }}">
+  <header><strong>Per-asset question</strong> <code>{{ data.asset_question.id_prefix }}&lt;SYMBOL&gt;</code> <span class="badge">noul</span></header>
+  <p>{{ data.asset_question.instructions }}</p>
+  <table>{% for k, desc in (data.asset_question.criteria or {}).items() %}<tr><td><code>{{ k }}</code></td><td><small>{{ desc }}</small></td></tr>{% endfor %}</table>
+</article>
+{% endif %}
+{% endblock %}
