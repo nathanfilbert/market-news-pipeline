@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from mnp.classify.base import ClassifierUnavailable
 from mnp.config import Settings
+from mnp.feed.build import enqueue_feed
 from mnp.models import Article, ArticleEmbedding, ArticleVersion, Cluster, RawItem, Source
 from mnp.normalize.same_event import SameEventJudge, judge_view
 
@@ -108,6 +109,8 @@ async def _join_or_create(
         .where(Article.id == article_id)
         .values(cluster_id=cluster_id, clustered_at=func.now(), cluster_method=method)
     )
+    if method != "isolated":  # backfill (old news) never enters the feed
+        await enqueue_feed(conn, cluster_id, f"join:{article_id}:{cluster_id}")
     return cluster_id
 
 

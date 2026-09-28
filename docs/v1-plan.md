@@ -369,13 +369,22 @@ can act on directly, under a versioned contract.
   breakdown (published → received → classified → available).
 - **Versioned contract:** `/v1/…` with a documented schema (OpenAPI), clean numeric formatting,
   and a changelog; breaking changes need a new version.
-- **Open questions for the owner** (they shape delivery and access): does the platform pull over
-  HTTP or need push (webhook or stream), and how quickly; does it run on this machine or
-  elsewhere (network binding and authentication); is its input format fixed or open to design.
-- ✅ An event appears once however many outlets report it, with revisions for changes; reading
-  with cursors after arbitrary interruptions yields every event exactly once per revision; an
-  `as_of` query never returns anything the pipeline learned after that time (tested by replaying
-  recorded history); the schema is documented and versioned.
+- **Owner answers** (2026-09-28): the platform pulls over HTTP to start with; it runs on this
+  machine (so localhost, no authentication); the schema is ours to design and the consumer builds
+  around it. Push delivery can come later on top of the same revision log.
+- **Built** (2026-09-28): an append-only `feed_revisions` table (id = cursor; writes serialized
+  so commits land in cursor order), feed jobs queued in the same transaction as every change,
+  content-hash dedupe, retraction with `superseded_by` after a re-cluster, `/v1/feed/events`,
+  `/v1/feed/snapshot`, `/v1/feed/events/{id}[/revisions]`, `mnp feed build|rebuild`. Schema and
+  combination rules: [feed-v1.md](feed-v1.md). History starts at deployment: `as_of` before then
+  returns nothing rather than a reconstruction that could leak later knowledge.
+- ✅ Met: an event appears once however many outlets report it, with a revision per change
+  (join, edit, classification) and none when nothing changed; paging with a cursor yields every
+  revision exactly once, and new changes appear after a saved cursor; `as_of` returns only
+  revisions available by then (replayed in tests: a pre-classification moment shows the
+  unclassified revision); retracted events leave the snapshot; the table rejects UPDATE and
+  DELETE; schema documented in feed-v1.md and OpenAPI. On the dev database: 368 events built in
+  5 s, 22 with several sources; snapshot queries take 5-40 ms.
 
 ### v1.4 release: exchange announcement sources
 Owner decision (2026-09-28). Exchanges' own announcements (listings, delistings, maintenance,

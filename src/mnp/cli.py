@@ -24,7 +24,7 @@ from mnp.collectors.service import (
 )
 from mnp.config import get_settings, load_sources
 from mnp.db import make_engine
-from mnp.jobs import CLASSIFY, NORMALIZE, run_pending
+from mnp.jobs import CLASSIFY, FEED, NORMALIZE, run_pending
 from mnp.logs import setup_logging
 from mnp.models import (
     Article,
@@ -421,7 +421,7 @@ def run(
     port: int = 8000,
     log_format: Annotated[str, typer.Option(help="json or text.")] = "json",
 ) -> None:
-    """Run everything: collectors, normalize and classify workers, and the API. Ctrl-C stops."""
+    """Run everything: collectors, normalize/classify/feed workers, and the API. Ctrl-C stops."""
     from mnp.runner import run as run_pipeline
 
     if log_format not in ("json", "text"):
@@ -523,6 +523,8 @@ def catch_up_command(
     else:
         c = report.classify
         typer.echo(f"classify: {c.done} done, {c.retrying} retrying, {c.failed} failed")
+    f = report.feed
+    typer.echo(f"feed: {f.done} events updated, {f.retrying} retrying, {f.failed} failed")
 
     total_days = (datetime.now(UTC).date() - report.since.date()).days + 1
     typer.echo(f"\ncoverage ({total_days} days, by publish date):")
@@ -633,6 +635,58 @@ def cluster_eval(
         f"join >= {s.cluster_join_similarity}, {s.cluster_confirm_similarity}+ via {how}",
         hybrid_predictions(report, s),
     )
+
+
+feed_app = typer.Typer(no_args_is_help=True, help="The trading feed (/v1/feed).")
+app.add_typer(feed_app, name="feed")
+
+
+@feed_app.command("build")
+def feed_build(limit: LimitOption = None) -> None:
+    """Process pending feed jobs: append a revision for each changed event."""
+    from mnp.feed.build import handle_feed_job
+
+    _setup_logging()
+
+    async def main():
+        engine = make_engine()
+        try:
+            return await run_pending(engine, FEED, handle_feed_job, limit=limit)
+        finally:
+            await engine.dispose()
+
+    stats = asyncio.run(main())
+    typer.echo(f"feed: {stats.done} done, {stats.retrying} retrying, {stats.failed} failed")
+    if stats.retrying or stats.failed:
+        raise typer.Exit(1)
+
+
+@feed_app.command("rebuild")
+def feed_rebuild() -> None:
+    """Re-check every event and append revisions where the snapshot changed.
+
+    Revisions are never rewritten: after a change to how snapshots are built (or a new
+    question set), events that differ get a new revision, the rest are left alone.
+    """
+    from mnp.feed.build import handle_feed_job, rebuild_all
+
+    _setup_logging()
+
+    async def main():
+        engine = make_engine()
+        try:
+            queued = await rebuild_all(engine)
+            return queued, await run_pending(engine, FEED, handle_feed_job)
+        finally:
+            await engine.dispose()
+
+    queued, stats = asyncio.run(main())
+    typer.echo(
+        f"feed rebuild: {queued} events checked; "
+        f"{stats.done} done, {stats.retrying} retrying, {stats.failed} failed"
+    )
+    if stats.retrying or stats.failed:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

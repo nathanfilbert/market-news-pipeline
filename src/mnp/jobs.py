@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 NORMALIZE = "normalize"
 CLASSIFY = "classify"
+FEED = "feed"
 
 MAX_ATTEMPTS = 8
 MAX_ERROR_LENGTH = 2000

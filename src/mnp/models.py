@@ -244,3 +244,26 @@ class ArticleEmbedding(Base):
     model: Mapped[str] = mapped_column(Text, primary_key=True)
     vector: Mapped[list[float]] = mapped_column(ARRAY(REAL))
     created_at: Mapped[datetime] = mapped_column(Timestamp, server_default=text("now()"))
+
+
+class FeedRevision(Base):
+    """Append-only log of event revisions: the trading feed (docs/feed-v1.md).
+
+    `id` is the cursor: revisions are written one at a time (under a lock) in id order, so
+    "everything after cursor X" never misses or repeats one. Rows are never updated.
+    """
+
+    __tablename__ = "feed_revisions"
+    __table_args__ = (
+        UniqueConstraint("event_id", "revision"),
+        CheckConstraint("status IN ('active', 'retracted')", name="status_valid"),
+        Index("ix_feed_revisions_event_id_id", "event_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    event_id: Mapped[int] = mapped_column(BigInteger)  # the cluster id; no FK (clusters can go)
+    revision: Mapped[int]
+    status: Mapped[str] = mapped_column(Text)
+    available_at: Mapped[datetime] = mapped_column(Timestamp, index=True)
+    content_hash: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)

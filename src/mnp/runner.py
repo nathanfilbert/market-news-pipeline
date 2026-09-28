@@ -24,7 +24,8 @@ from mnp.classify.service import ClassifyHandler
 from mnp.collectors.base import CollectorUnavailable, make_http_client
 from mnp.collectors.service import make_collector, run_source_loop, sync_sources
 from mnp.config import Settings, load_sources
-from mnp.jobs import CLASSIFY, NORMALIZE, Handler, run_pending
+from mnp.feed.build import handle_feed_job
+from mnp.jobs import CLASSIFY, FEED, NORMALIZE, Handler, run_pending
 from mnp.normalize.service import handle_normalize_job
 from mnp.outputs.api import create_app
 from mnp.outputs.queries import health
@@ -190,6 +191,7 @@ async def run(
             )
 
         start("worker:normalize", lambda: run_worker(engine, NORMALIZE, handle_normalize_job, stop))
+        start("worker:feed", lambda: run_worker(engine, FEED, handle_feed_job, stop))
 
         if settings.jev_api_key is not None:
             classifier = JevClassifier(
@@ -208,7 +210,7 @@ async def run(
             start("api", lambda: serve_api(engine, host, port, stop))
 
         log.info(
-            "running %d collectors (%s), workers: normalize%s%s",
+            "running %d collectors (%s), workers: normalize%s, feed%s",
             len(collectors),
             ", ".join(collectors),
             ", classify" if settings.jev_api_key else "",
