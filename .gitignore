@@ -1,7 +1,14 @@
 __pycache__/
 *.py[cod]
 .venv/
+# Secrets: .env and any variant or editor swap/backup of it (keep the example)
 .env
+.env.*
+!.env.example
+# Editor swap and backup files
+*.swp
+*.swo
+*~
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
