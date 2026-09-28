@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
+import numpy as np
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -11,11 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from mnp.classify.service import enqueue_classify
 from mnp.config import Settings, get_settings
 from mnp.jobs import PermanentJobError
-from mnp.models import Article, ArticleVersion, RawItem, Source
+from mnp.models import Article, ArticleEmbedding, ArticleVersion, RawItem, Source
 from mnp.normalize.canonical_url import canonicalize_url
-from mnp.normalize.cluster import assign_cluster
+from mnp.normalize.cluster import assign_cluster, assign_cluster_by_embedding
+from mnp.normalize.embeddings import embed_texts, embedding_text, get_embedder
 from mnp.normalize.hashing import content_hash
 from mnp.normalize.item import UnparseableItem, parse_payload
+from mnp.normalize.same_event import SameEventJudge, default_judge, judge_view
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,8 +29,14 @@ class NormalizeOutcome:
     cluster_id: int | None
 
 
+_DEFAULT: Any = object()  # judge not given: use default_judge(settings)
+
+
 async def normalize_raw_item(
-    conn: AsyncConnection, raw_item_id: int, settings: Settings | None = None
+    conn: AsyncConnection,
+    raw_item_id: int,
+    settings: Settings | None = None,
+    judge: SameEventJudge | None = _DEFAULT,
 ) -> NormalizeOutcome:
     """Idempotent: running it again for the same raw item writes nothing.
 
@@ -43,6 +52,7 @@ async def normalize_raw_item(
                 RawItem.external_id,
                 RawItem.fetched_at,
                 RawItem.source_id,
+                Source.name.label("source_name"),
                 Source.language,
             )
             .join(Source, Source.id == RawItem.source_id)
@@ -137,19 +147,56 @@ async def normalize_raw_item(
     if not is_backfill:
         await enqueue_classify(conn, [version_id], settings.question_set)
 
+    vector = None
+    if settings.cluster_method == "embedding":
+        vector = await store_embedding(conn, version_id, headline, parsed.summary, settings)
+
     cluster_id = None
     if new_article:
-        cluster_id = await assign_cluster(
-            conn,
-            article_id=article_id,
-            source_id=raw.source_id,
-            headline=headline,
-            seen_at=raw.fetched_at,
-            threshold=settings.cluster_similarity_threshold,
-            window=timedelta(hours=settings.cluster_window_hours),
-            isolated=is_backfill,
-        )
+        anchor = parsed.published_at or raw.fetched_at
+        if vector is not None and not is_backfill:
+            decision = await assign_cluster_by_embedding(
+                conn,
+                article_id=article_id,
+                source_id=raw.source_id,
+                vector=vector,
+                view=judge_view(raw.source_name, headline, parsed.summary),
+                anchor=anchor,
+                model=get_embedder(settings.embedding_model, settings.embedding_cache_dir).name,
+                settings=settings,
+                judge=default_judge(settings) if judge is _DEFAULT else judge,
+            )
+            cluster_id = decision.cluster_id
+        else:
+            cluster_id = await assign_cluster(
+                conn,
+                article_id=article_id,
+                source_id=raw.source_id,
+                headline=headline,
+                seen_at=raw.fetched_at,
+                threshold=settings.cluster_similarity_threshold,
+                window=timedelta(hours=settings.cluster_window_hours),
+                isolated=is_backfill,
+            )
     return NormalizeOutcome(article_id, new_article, version_no, cluster_id)
+
+
+async def store_embedding(
+    conn: AsyncConnection,
+    version_id: int,
+    headline: str,
+    summary: str | None,
+    settings: Settings,
+) -> np.ndarray:
+    """Embed a version's headline + summary and store it (idempotent)."""
+    embedder = get_embedder(settings.embedding_model, settings.embedding_cache_dir)
+    [vector] = await embed_texts(embedder, [embedding_text(headline, summary)])
+    await conn.execute(
+        pg_insert(ArticleEmbedding)
+        .values(article_version_id=version_id, model=embedder.name, vector=vector.tolist())
+        .on_conflict_do_nothing()
+    )
+    return vector
 
 
 async def handle_normalize_job(conn: AsyncConnection, payload: dict[str, Any]) -> None:

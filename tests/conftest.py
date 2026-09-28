@@ -29,6 +29,13 @@ def _no_backfill_by_default(monkeypatch):
     Tests of the backfill rule set BACKFILL_AFTER_DAYS themselves.
     """
     monkeypatch.setenv("BACKFILL_AFTER_DAYS", "100000")
+    # Offline embeddings; thresholds suited to hashed word overlap. No Jev calls when
+    # clustering (tests that exercise the same-event check pass their own judge).
+    monkeypatch.setenv("EMBEDDING_MODEL", "hashing")
+    monkeypatch.setenv("CLUSTER_JOIN_SIMILARITY", "0.6")
+    monkeypatch.setenv("CLUSTER_CONFIRM_SIMILARITY", "0.4")
+    monkeypatch.setenv("CLUSTER_FALLBACK_SIMILARITY", "0.5")
+    monkeypatch.setenv("CLUSTER_CONFIRM_WITH_JEV", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

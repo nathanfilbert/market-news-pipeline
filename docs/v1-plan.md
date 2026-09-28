@@ -301,30 +301,40 @@ build step, reads through the same query layer as the API.
   an article can be traced from list → versions → classification (every probability) → raw
   payload; tests cover each page with fixture data.
 
-### v1.2 release: embedding-based clustering (proposed)
+### v1.2 release: embedding-based clustering
 Owner decision (2026-09-28): the next focus, because the trading platform needs each real-world
-event to appear once, whichever outlets report it. Trigram headline similarity misses paraphrases
-(e.g. five outlets' Bitget-hack headlines became separate clusters; CoinDesk vs The Block on
-Buterin's 2030 roadmap scored 0.46 < 0.6).
+event to appear once, whichever outlets report it. Trigram headline similarity missed
+paraphrases (five outlets' Bitget-hack headlines became separate clusters).
 
-- **Embeddings:** embed each article version's headline + summary with a small local model
-  (proposed: `BAAI/bge-small-en-v1.5` via `fastembed`, ONNX on CPU, 384 dimensions): no API cost
-  or dependency, text stays local, results are deterministic for a pinned model. Stored in
-  Postgres with `pgvector` (HNSW index, cosine distance); the model name is stored with each
-  vector so the model can be changed and re-run.
-- **Assignment:** nearest neighbours among other sources' current (non-backfill) articles within
-  a time window, anchored on publish time where known. Similarity above a high threshold joins
-  the cluster; below a low threshold starts a new one; in between, Jev answers a yes/no "Do these
-  two articles report the same event?" so borderline pairs don't over-merge distinct events
-  (e.g. two different exchange hacks in one week). Same-source matches stay excluded.
-- **Evaluation first:** a labelled set of article pairs from stored data (known same-event pairs
-  across outlets, and known different-event pairs such as Fed template headlines) sets the
-  thresholds; `mnp` reports precision/recall for trigram vs embeddings.
-- **Rebuild:** clusters are derived data, so a command re-clusters stored articles with the new
-  method (deterministic, idempotent); the trigram module stays for comparison.
-- ✅ On the labelled set, embeddings find clearly more same-event pairs than trigrams without
-  merging distinct same-template events; new articles are embedded and clustered within the
-  normal pipeline latency; re-clustering is repeatable.
+As built (2026-09-28):
+- **Embeddings:** each article version's headline + start of summary, embedded with
+  `BAAI/bge-small-en-v1.5` via `fastembed` (ONNX on CPU, 384 dimensions, milliseconds per
+  article; the model is cached locally). Stored in `article_embeddings` as a `real[]` with the
+  model name. **pgvector was not needed:** the matching window holds at most ~1,000 vectors and
+  NumPy compares them in well under a millisecond. Revisit if volume grows by ~100x.
+- **Assignment** (`normalize/cluster.py`): nearest articles from *other* sources within ±48h of
+  publish time (first seen when unknown). Cosine ≥ 0.88 joins; 0.78–0.88 asks Jev "Do these two
+  articles report the same event?" and joins if yes ≥ 0.7 (at most two clusters asked); if Jev is
+  unavailable, ≥ 0.84 joins. Backfill articles stay isolated. All thresholds are settings.
+- **Evaluation:** `data/cluster_eval/pairs.yaml` holds 287 labelled cross-source pairs (80 same
+  event), identified by URL. `mnp cluster-eval [--jev]` scores them:
+
+  | Method | Recall | Precision |
+  |---|---|---|
+  | Trigram ≥ 0.6 (v1) | 2% | 100% |
+  | Embedding ≥ 0.82 | 91% | 91% |
+  | **Hybrid (defaults)** | **88%** | **99%** |
+
+  Precision is favoured: merging two different events would hide one from the trading platform.
+- **Provenance:** `articles.clustered_at` and `cluster_method` (embedding, trigram, isolated),
+  exposed in the API. Consumers replaying history must not use a cluster assignment before its
+  `clustered_at`.
+- **Rebuild:** `mnp recluster [--since]` replays articles in publish-time order with the
+  configured method. On the dev database: 433 articles, 17 multi-article stories (was 2), 37
+  same-event checks, all 17 stories verified correct by hand.
+- ✅ Met: embeddings find far more same-event pairs than trigrams (88% vs 2% recall) without
+  merging distinct same-template events; new articles are embedded and clustered during
+  normalize; re-clustering is repeatable (tested).
 
 ### Ideas (not scheduled)
 - **Alerting.** Documented for reference; not planned while the pipeline's main consumer is the

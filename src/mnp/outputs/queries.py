@@ -106,6 +106,9 @@ class ArticleRow:
     received_at: datetime
     classification: dict[str, Any] | None
     assets: list[AssetTag] = field(default_factory=list)
+    # When and how cluster_id was assigned; don't use it (e.g. in a backtest) before then.
+    clustered_at: datetime | None = None
+    cluster_method: str | None = None
 
 
 CLASSIFICATION_FIELDS = (
@@ -182,6 +185,8 @@ async def search_articles(
             Article.first_seen_at,
             Article.cluster_id,
             Article.is_backfill,
+            Article.clustered_at,
+            Article.cluster_method,
             Source.name.label("source"),
             latest.c.id.label("version_id"),
             latest.c.version_no,
@@ -261,6 +266,8 @@ async def search_articles(
                 else None
             ),
             assets=tags.get(r.c_id, []) if r.c_id is not None else [],
+            clustered_at=r.clustered_at,
+            cluster_method=r.cluster_method,
         )
         for r in rows
     ]
@@ -304,6 +311,8 @@ async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] 
         "canonical_url": article.canonical_url,
         "first_seen_at": article.first_seen_at,
         "cluster_id": article.cluster_id,
+        "clustered_at": article.clustered_at,
+        "cluster_method": article.cluster_method,
         "is_backfill": article.is_backfill,
         "versions": [
             {

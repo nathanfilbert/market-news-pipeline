@@ -538,5 +538,102 @@ def catch_up_command(
         raise typer.Exit(1)
 
 
+@app.command()
+def recluster(
+    since: Annotated[
+        str | None,
+        typer.Option(help="Only articles published at/after this (e.g. 14d). Default: all."),
+    ] = None,
+    jev: Annotated[
+        bool, typer.Option(help="Ask Jev about borderline pairs (else the fallback threshold).")
+    ] = True,
+) -> None:
+    """Rebuild clusters for stored articles with the configured method (derived data)."""
+    from mnp.normalize.recluster import recluster as run_recluster
+    from mnp.normalize.same_event import default_judge
+
+    _setup_logging()
+    settings = get_settings()
+    start = _time_option(since)
+
+    async def main():
+        engine = make_engine()
+        try:
+            judge = default_judge(settings) if jev else None
+            return await run_recluster(engine, settings, since=start, judge=judge)
+        finally:
+            await engine.dispose()
+
+    r = asyncio.run(main())
+    typer.echo(
+        f"recluster ({settings.cluster_method}): {r.articles} articles, {r.embedded} embedded; "
+        f"{r.joined} joined a story, {r.new_clusters} started one; "
+        f"{r.judged} same-event checks, {r.fallbacks} fallbacks; "
+        f"{r.multi_source_clusters} multi-article clusters"
+    )
+
+
+@app.command("cluster-eval")
+def cluster_eval(
+    pairs: Annotated[
+        str, typer.Option(help="Labelled pairs file.")
+    ] = "data/cluster_eval/pairs.yaml",
+    jev: Annotated[
+        bool, typer.Option(help="Also ask Jev about every pair (small cost, ~1 call each).")
+    ] = False,
+) -> None:
+    """Precision and recall of trigram vs embedding clustering on labelled pairs."""
+    from pathlib import Path
+
+    from mnp.normalize.recluster import evaluate_pairs, hybrid_predictions, load_pairs
+    from mnp.normalize.same_event import JevSameEventJudge
+
+    _setup_logging()
+    settings = get_settings()
+    labelled = load_pairs(Path(pairs))
+    if jev and settings.jev_api_key is None:
+        typer.echo("--jev needs JEV_API_KEY", err=True)
+        raise typer.Exit(2)
+
+    async def main():
+        engine = make_engine()
+        try:
+            judge = JevSameEventJudge(settings) if jev else None
+            return await evaluate_pairs(engine, settings, labelled, judge=judge)
+        finally:
+            await engine.dispose()
+
+    report = asyncio.run(main())
+    pos = report.positives
+    typer.echo(
+        f"{len(report.pairs)} pairs ({pos} same), {report.missing} not in this database; "
+        f"embedding model {settings.embedding_model}"
+    )
+
+    def line(label: str, predicted: list[bool]) -> None:
+        recall, precision, tp, n = report.rate(predicted)
+        typer.echo(
+            f"  {label:34} recall {recall:5.0%} ({tp}/{pos})  precision {precision:5.0%} ({tp}/{n})"
+        )
+
+    typer.echo("trigram (headline):")
+    for th in (0.6, 0.4, 0.3):
+        line(f">= {th}", [p.trigram >= th for p in report.pairs])
+    typer.echo("embedding (cosine):")
+    for th in (0.90, 0.88, 0.86, 0.84, 0.82, 0.80):
+        line(f">= {th}", [p.embedding >= th for p in report.pairs])
+    if jev:
+        typer.echo("jev alone (yes-probability):")
+        for th in (0.5, 0.7):
+            line(f">= {th}", [(p.jev or 0) >= th for p in report.pairs])
+    s = settings
+    how = "Jev" if jev else f"fallback >= {s.cluster_fallback_similarity}"
+    typer.echo("current settings (what the pipeline would decide):")
+    line(
+        f"join >= {s.cluster_join_similarity}, {s.cluster_confirm_similarity}+ via {how}",
+        hybrid_predictions(report, s),
+    )
+
+
 if __name__ == "__main__":
     app()

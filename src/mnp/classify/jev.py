@@ -16,6 +16,7 @@ import time
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from typing import Any
 
 import httpx
 
@@ -87,7 +88,13 @@ class JevClassifier:
     async def classify(
         self, state: ArticleState, questions: Mapping[str, Question]
     ) -> ClassificationResult:
-        body = {"state": state.to_json(), "model": self.model, "questions": dict(questions)}
+        return await self.ask(state.to_json(), questions)
+
+    async def ask(
+        self, state: dict[str, Any], questions: Mapping[str, Question]
+    ) -> ClassificationResult:
+        """Evaluate any JSON state against questions (used beyond article classification)."""
+        body = {"state": state, "model": self.model, "questions": dict(questions)}
         started = time.monotonic()
         try:
             response = await self.client.post(

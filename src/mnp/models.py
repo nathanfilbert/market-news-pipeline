@@ -16,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Deterministic constraint names so Alembic autogenerate produces stable migrations.
@@ -105,6 +105,10 @@ class Article(Base):
     )
     # Published long before we first saw it (see Settings.backfill_after_days).
     is_backfill: Mapped[bool] = mapped_column(server_default=text("false"))
+    # When and how cluster_id was assigned. Consumers replaying history must not use a
+    # cluster assignment before clustered_at (e.g. after `mnp recluster`).
+    clustered_at: Mapped[datetime | None] = mapped_column(Timestamp)
+    cluster_method: Mapped[str | None] = mapped_column(Text)  # embedding | trigram | isolated
 
 
 class ArticleVersion(Base):
@@ -227,3 +231,16 @@ class ArticleAsset(Base):
     )
     candidate_via: Mapped[str] = mapped_column(Text)
     relevance_prob: Mapped[float] = mapped_column(Double)  # Jev: "is this article about <asset>?"
+
+
+class ArticleEmbedding(Base):
+    """Embedding of an article version's headline + summary (mnp.normalize.embeddings)."""
+
+    __tablename__ = "article_embeddings"
+
+    article_version_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("article_versions.id"), primary_key=True
+    )
+    model: Mapped[str] = mapped_column(Text, primary_key=True)
+    vector: Mapped[list[float]] = mapped_column(ARRAY(REAL))
+    created_at: Mapped[datetime] = mapped_column(Timestamp, server_default=text("now()"))
