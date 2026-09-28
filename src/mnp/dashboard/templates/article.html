@@ -10,6 +10,7 @@
     first seen {{ article.first_seen_at | dt }} · {{ article.versions | length }} version{{ 's' if article.versions | length > 1 }}
     {% if article.is_backfill %} · <span class="badge status-disabled">backfill (old news at first sight)</span>{% endif %}
     {% if cluster and cluster.articles | length > 1 %} · <a href="/ui/clusters/{{ cluster.id }}">cluster of {{ cluster.articles | length }}</a>{% endif %}
+    {% if article.cluster_method %}<br><small class="muted">clustered by {{ article.cluster_method }} at {{ article.clustered_at | dt }}</small>{% endif %}
   </p>
 </hgroup>
 

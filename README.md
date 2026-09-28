@@ -5,8 +5,7 @@ classifies each article with [Jev](https://docs.typesafe.ai) (TypeSafe AI's deci
 and serves the results through a CLI and a small read-only HTTP API.
 
 For research, not a trading signal: latency is about a minute. The design, milestones and
-decisions are in [docs/v1-plan.md](docs/v1-plan.md). Next: a read-only dashboard (v1.1), then
-alerting (v1.2).
+decisions are in [docs/v1-plan.md](docs/v1-plan.md).
 
 ## How it works
 
@@ -159,6 +158,13 @@ forbid redistributing its data.
 - **Assets:** `config/assets.yaml`. Symbols, names and aliases used to find candidate assets in
   headlines; Jev then confirms each one. Mark symbols that are common words (`LINK`, `NEAR`)
   `ambiguous: true`.
+
+- **Clustering (same story, different outlets):** articles are embedded with a small local model
+  (`BAAI/bge-small-en-v1.5`, downloaded once to `~/.cache/mnp/fastembed`) and join a story when
+  similar enough; borderline pairs are checked with Jev ("same event?"). Tune with the
+  `CLUSTER_*` settings and check the effect with `uv run mnp cluster-eval [--jev]` against
+  `data/cluster_eval/pairs.yaml`. `uv run mnp recluster [--since 30d]` rebuilds clusters after a
+  change; each article records when and how it was clustered (`clustered_at`, `cluster_method`).
 
 Step-by-step commands (`mnp collect --once`, `mnp normalize`, `mnp classify --show`) run one
 stage at a time, which is handy for debugging. `uv run mnp --help` lists everything.

@@ -152,9 +152,15 @@ async def test_stories_outside_the_window_are_not_clustered(engine, pipeline):
     collect, normalize = pipeline
     await collect("a", "rss/wordpress.xml")
     await normalize()
+    # The window is anchored on publish time (first seen when there is none).
     async with engine.begin() as conn:
         await conn.execute(
             update(Article).values(first_seen_at=Article.first_seen_at - timedelta(days=3))
+        )
+        await conn.execute(
+            update(ArticleVersion).values(
+                published_at=ArticleVersion.published_at - timedelta(days=3)
+            )
         )
     await collect("b", "rss/second_source.xml")
     await normalize()

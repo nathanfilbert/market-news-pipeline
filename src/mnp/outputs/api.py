@@ -57,6 +57,8 @@ class ArticleOut(BaseModel):
     first_seen_at: datetime
     cluster_id: int | None
     cluster_size: int
+    clustered_at: datetime | None
+    cluster_method: str | None
     is_backfill: bool
     source: str
     version_no: int
@@ -75,6 +77,8 @@ class ArticleOut(BaseModel):
             first_seen_at=row.first_seen_at,
             cluster_id=row.cluster_id,
             cluster_size=row.cluster_size,
+            clustered_at=row.clustered_at,
+            cluster_method=row.cluster_method,
             is_backfill=row.is_backfill,
             source=row.source,
             version_no=row.version_no,
@@ -124,6 +128,8 @@ class ArticleDetail(BaseModel):
     first_seen_at: datetime
     cluster_id: int | None
     cluster_url: str | None
+    clustered_at: datetime | None
+    cluster_method: str | None
     is_backfill: bool
     versions: list[VersionOut]
 
@@ -250,6 +256,8 @@ def create_app(engine: AsyncEngine) -> FastAPI:
             first_seen_at=article["first_seen_at"],
             cluster_id=cluster_id,
             cluster_url=f"/clusters/{cluster_id}" if cluster_id else None,
+            clustered_at=article["clustered_at"],
+            cluster_method=article["cluster_method"],
             is_backfill=article["is_backfill"],
             versions=[
                 VersionOut(
