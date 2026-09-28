@@ -34,7 +34,9 @@ from mnp.config import SourceConfig
 log = logging.getLogger(__name__)
 
 MIN_INTERVAL_SECONDS = 10.0  # GDELT's limit is one request per 5 s; stay well clear of it
-THROTTLED_PAUSE_SECONDS = 120.0  # all GDELT sources wait this long after being throttled
+# All GDELT sources wait this long after being throttled. Live testing (2026-09-28) saw 429s
+# persist through 150 s of silence, so the pause is long.
+THROTTLED_PAUSE_SECONDS = 300.0
 MAX_RECORDS = 250  # the API's maximum per request
 # GDELT often takes 20 s or more to answer (measured 2026-09-28), beyond the shared 20 s timeout.
 REQUEST_TIMEOUT = httpx.Timeout(60.0, connect=15.0)
@@ -110,8 +112,9 @@ class GdeltCollector(Collector):
             raise CollectorUnavailable("options.query not set")
         self.query = query.strip()
         self.max_pages = int(source.options.get("max_pages", 4))
-        # First poll (no checkpoint) looks this far back.
-        self.lookback = timedelta(minutes=float(source.options.get("lookback_minutes", 60)))
+        # First poll (no checkpoint) looks this far back. GDELT's newest articles lag 30-45
+        # minutes, so 60 minutes would only cover about half an hour.
+        self.lookback = timedelta(minutes=float(source.options.get("lookback_minutes", 120)))
         # GDELT indexes in 15-minute batches, so an article can appear after later ones were
         # already returned: each poll re-reads this much before the checkpoint.
         self.overlap = timedelta(minutes=float(source.options.get("overlap_minutes", 30)))

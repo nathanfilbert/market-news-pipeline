@@ -82,7 +82,7 @@ async def test_first_fetch_looks_back_and_sets_checkpoint():
     assert params["format"] == "json"
     assert params["sort"] == "DateAsc"
     assert params["maxrecords"] == "250"
-    assert params["startdatetime"] == "20260927093000"  # default lookback: 60 minutes
+    assert params["startdatetime"] == "20260927083000"  # default lookback: 120 minutes
     assert params["enddatetime"] == "20260927103000"
     assert request.extensions["timeout"]["read"] == 60.0  # GDELT answers slowly
     assert checkpoint == {"seen_through": "20260927T101500Z"}
@@ -122,7 +122,7 @@ async def test_full_pages_are_followed_oldest_first():
 
     payloads, checkpoint = await collector(handler).fetch({})
 
-    assert starts == ["20260927093000", "20260927095400"]
+    assert starts == ["20260927083000", "20260927095400"]
     assert len(payloads) == 251
     assert checkpoint == {"seen_through": "20260927T100000Z"}
 
@@ -139,7 +139,7 @@ async def test_page_limit_resumes_from_where_it_stopped():
     _, checkpoint = await collector(handler, src=src).fetch({})
 
     assert len(starts) == 2
-    assert starts == ["20260927093000", "20260927094000"]
+    assert starts == ["20260927083000", "20260927094000"]
     assert checkpoint == {"seen_through": "20260927T095000Z"}
 
 
@@ -148,7 +148,7 @@ async def test_full_page_within_one_second_stops():
 
     def handler(request):
         calls.append(request)
-        return articles_response([article(i, "20260927T093000Z") for i in range(250)])
+        return articles_response([article(i, "20260927T083000Z") for i in range(250)])  # = start
 
     payloads, _ = await collector(handler).fetch({})
     assert len(calls) == 1

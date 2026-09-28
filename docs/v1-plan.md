@@ -428,7 +428,14 @@ As built (2026-09-28, not yet enabled):
   window still unfinished resumes at the next poll. Articles are stored as received; the
   normalizer takes the title, URL, language and GDELT's first-seen time (no summary).
 - **Rate limit:** all GDELT sources share one pacer, one request every 10 s. A 429 or GDELT's
-  "Please limit requests" text pauses every GDELT source for 2 minutes and backs the source off.
+  "Please limit requests" text pauses every GDELT source for 5 minutes and backs the source off.
+  Requests get a 60 s read timeout (GDELT took ~21 s to answer in live testing).
+- **Live test** (2026-09-28, from the owner's machine): GDELT mostly answered 429 even after
+  150 s of silence, so throttling is partly per IP and outside our control. `gdelt_conflict`
+  returned 230 English articles from 144 domains for about half an hour of coverage (GDELT's
+  newest articles lag 30-45 minutes; the first poll now looks back 120 minutes), with weak market
+  relevance. The other three queries were throttled every time, so their theme names are
+  unconfirmed.
 - **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
   any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
   link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the

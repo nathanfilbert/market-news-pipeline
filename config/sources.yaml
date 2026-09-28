@@ -117,7 +117,7 @@
 # --- GDELT (v1.5) ---
 # GDELT DOC 2.0 article search: https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/
 # Free, no key, one request per 5 seconds: all GDELT sources share one pacer (a request every
-# 10 s, pausing 2 min if throttled). Titles and URLs only, from outlets worldwide; queries use
+# 10 s, pausing 5 min if throttled). Titles and URLs only, from outlets worldwide; queries use
 # GDELT's GKG themes (https://blog.gdeltproject.org/gdelt-global-knowledge-graph/) and are
 # limited to English-language coverage.
 #
