@@ -103,6 +103,8 @@ class Article(Base):
     cluster_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("clusters.id"), index=True
     )
+    # Published long before we first saw it (see Settings.backfill_after_days).
+    is_backfill: Mapped[bool] = mapped_column(server_default=text("false"))
 
 
 class ArticleVersion(Base):

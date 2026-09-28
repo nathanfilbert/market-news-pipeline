@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Near-duplicate clustering (docs/v1-plan.md §5).
     cluster_similarity_threshold: float = Field(default=0.6, gt=0, le=1)
     cluster_window_hours: float = Field(default=48, gt=0)
+    # Items published this long before we first see them are old news (a new source's first
+    # fetch, feeds that resurface old posts): not classified, not clustered, hidden by default.
+    backfill_after_days: float = Field(default=7, gt=0)
     config_dir: Path = PROJECT_ROOT / "config"
 
     @field_validator("jev_api_key", "finnhub_api_key", "contact_email", mode="before")

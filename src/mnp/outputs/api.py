@@ -57,6 +57,7 @@ class ArticleOut(BaseModel):
     first_seen_at: datetime
     cluster_id: int | None
     cluster_size: int
+    is_backfill: bool
     source: str
     version_no: int
     headline: str
@@ -74,6 +75,7 @@ class ArticleOut(BaseModel):
             first_seen_at=row.first_seen_at,
             cluster_id=row.cluster_id,
             cluster_size=row.cluster_size,
+            is_backfill=row.is_backfill,
             source=row.source,
             version_no=row.version_no,
             headline=row.headline,
@@ -122,6 +124,7 @@ class ArticleDetail(BaseModel):
     first_seen_at: datetime
     cluster_id: int | None
     cluster_url: str | None
+    is_backfill: bool
     versions: list[VersionOut]
 
 
@@ -173,6 +176,9 @@ def _filter(
         float | None, Query(ge=0, le=1, description="Minimum is_market_relevant_prob")
     ] = None,
     min_asset_relevance: Annotated[float, Query(ge=0, le=1)] = DEFAULT_MIN_ASSET_RELEVANCE,
+    include_backfill: Annotated[
+        bool, Query(description="Include old news we only just saw (hidden by default)")
+    ] = False,
     question_set: Annotated[str | None, Query(description="Default: QUESTION_SET")] = None,
     classifier: str = "jev",
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 50,
@@ -188,6 +194,7 @@ def _filter(
         min_impact=min_impact,
         min_relevance=min_relevance,
         min_asset_relevance=min_asset_relevance,
+        include_backfill=include_backfill,
         classifier=classifier,
         limit=limit,
         offset=offset,
@@ -230,6 +237,7 @@ def create_app(engine: AsyncEngine) -> FastAPI:
             first_seen_at=article["first_seen_at"],
             cluster_id=cluster_id,
             cluster_url=f"/clusters/{cluster_id}" if cluster_id else None,
+            is_backfill=article["is_backfill"],
             versions=[
                 VersionOut(
                     **{k: v for k, v in version.items() if k != "classifications"},
@@ -253,6 +261,7 @@ def create_app(engine: AsyncEngine) -> FastAPI:
         """A near-duplicate story group: every article covering the same story."""
         f = ArticleFilter(
             limit=MAX_LIMIT,
+            include_backfill=True,  # a cluster shows all of its articles
             classifier=classifier,
             **({"question_set": question_set} if question_set else {}),
         )

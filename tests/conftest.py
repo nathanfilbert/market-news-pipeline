@@ -22,6 +22,18 @@ def fixture_bytes(relpath: str) -> bytes:
     return (FIXTURES / relpath).read_bytes()
 
 
+@pytest.fixture(autouse=True)
+def _no_backfill_by_default(monkeypatch):
+    """Fixture feeds carry fixed 2026 dates; don't let them age into backfill as time passes.
+
+    Tests of the backfill rule set BACKFILL_AFTER_DAYS themselves.
+    """
+    monkeypatch.setenv("BACKFILL_AFTER_DAYS", "100000")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 def alembic_config(database_url: str) -> Config:
     cfg = Config(PROJECT_ROOT / "alembic.ini")
     cfg.attributes["database_url"] = database_url

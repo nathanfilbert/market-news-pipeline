@@ -334,6 +334,9 @@ def news(
     min_relevance: Annotated[
         float | None, typer.Option(min=0, max=1, help="Minimum market relevance.")
     ] = None,
+    include_backfill: Annotated[
+        bool, typer.Option(help="Include old news we only just saw (hidden by default).")
+    ] = False,
     limit: Annotated[int, typer.Option(min=1, max=500)] = 20,
     as_json: Annotated[bool, typer.Option("--json", help="One JSON object per line.")] = False,
 ) -> None:
@@ -347,6 +350,7 @@ def news(
         sources=tuple(source or ()),
         min_impact=min_impact,
         min_relevance=min_relevance,
+        include_backfill=include_backfill,
         limit=limit,
     )
 
@@ -380,6 +384,8 @@ def _format_article(r: ArticleRow) -> str:
             f"{c['event_type']} {c['event_type_prob']:.2f} | impact {c['impact']:.2f}"
             f" | sentiment {c['sentiment']:+.2f} | relevant {c['is_market_relevant_prob']:.2f}"
         )
+    elif r.is_backfill:
+        label = "(backfill: old news, not classified)"
     else:
         label = "(not classified yet)"
     tagged = [f"{a.symbol} {a.relevance_prob:.2f}" for a in r.assets if a.relevance_prob >= 0.5]
