@@ -30,10 +30,15 @@ Requires [uv](https://docs.astral.sh/uv/) and Docker (with the Compose plugin).
 
 ```bash
 cp .env.example .env         # then fill in the keys below
+git config core.hooksPath .githooks   # block commits containing secrets
 docker compose up -d         # Postgres 16 on 127.0.0.1:5432
 uv run alembic upgrade head
 uv run mnp check             # config and database reachable?
 ```
+
+Keys belong only in `.env`, which git ignores. The pre-commit hook (plus
+[gitleaks](https://github.com/gitleaks/gitleaks), if installed) and CI stop credentials from
+being committed; see [docs/secrets.md](docs/secrets.md).
 
 Keys in `.env`:
 
@@ -123,4 +128,6 @@ uv run ruff check . && uv run ruff format --check .
 ```
 
 Tests never touch the network: feeds, Finnhub and Jev are mocked with synthetic fixtures in
-`tests/fixtures/`. CI runs lint, migrations and tests against Postgres on every pull request.
+`tests/fixtures/`. CI runs lint, migrations and tests against Postgres, plus a secrets scan, on
+every pull request. Stage files by explicit path; `git add -A` is blocked for Claude Code in
+this repo (`.claude/settings.json`).
