@@ -1,9 +1,11 @@
 """`mnp` command-line entrypoint."""
 
 import asyncio
+import dataclasses
+import json
 import logging
 import signal
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import typer
@@ -35,6 +37,7 @@ from mnp.models import (
     Source,
 )
 from mnp.normalize.service import handle_normalize_job
+from mnp.outputs.queries import ArticleFilter, ArticleRow, parse_time, search_articles
 
 app = typer.Typer(no_args_is_help=True, help="Market news pipeline.")
 
@@ -301,6 +304,105 @@ async def _show_classifications(engine, classification_ids: list[int]) -> None:
         )
         if tagged := by_classification.get(r.id):
             typer.echo(f"  assets: {', '.join(tagged)}")
+
+
+def _time_option(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        return parse_time(value)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command()
+def news(
+    since: Annotated[
+        str | None, typer.Option(help="e.g. 1h, 2d or 2026-09-27T12:00 (UTC).")
+    ] = "24h",
+    until: Annotated[str | None, typer.Option(help="Same formats as --since.")] = None,
+    asset: Annotated[
+        list[str] | None, typer.Option("--asset", "-a", help="Symbol, repeatable (any).")
+    ] = None,
+    event_type: Annotated[
+        list[str] | None, typer.Option("--event-type", "-e", help="Repeatable (any).")
+    ] = None,
+    domain: Annotated[str | None, typer.Option(help="crypto, equities, macro or other.")] = None,
+    source: Annotated[list[str] | None, typer.Option("--source", "-s")] = None,
+    min_impact: Annotated[float | None, typer.Option(min=0, max=1)] = None,
+    min_relevance: Annotated[
+        float | None, typer.Option(min=0, max=1, help="Minimum market relevance.")
+    ] = None,
+    limit: Annotated[int, typer.Option(min=1, max=500)] = 20,
+    as_json: Annotated[bool, typer.Option("--json", help="One JSON object per line.")] = False,
+) -> None:
+    """Query classified news, newest first."""
+    f = ArticleFilter(
+        since=_time_option(since),
+        until=_time_option(until),
+        assets=tuple(asset or ()),
+        event_types=tuple(event_type or ()),
+        domain=domain,
+        sources=tuple(source or ()),
+        min_impact=min_impact,
+        min_relevance=min_relevance,
+        limit=limit,
+    )
+
+    async def run() -> list[ArticleRow]:
+        engine = make_engine()
+        try:
+            async with engine.connect() as conn:
+                return await search_articles(conn, f)
+        finally:
+            await engine.dispose()
+
+    rows = asyncio.run(run())
+    if as_json:
+        for r in rows:
+            typer.echo(json.dumps(dataclasses.asdict(r), default=str))
+        return
+    if not rows:
+        typer.echo("no matching articles")
+    for r in rows:
+        typer.echo(_format_article(r))
+
+
+def _format_article(r: ArticleRow) -> str:
+    when = r.first_seen_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M")
+    if r.published_at and r.first_seen_at - r.published_at > timedelta(hours=6):
+        # Old news we only just saw (e.g. a new source's first fetch): say so.
+        when += f" (published {r.published_at.astimezone(UTC):%Y-%m-%d %H:%M})"
+    c = r.classification
+    if c:
+        label = (
+            f"{c['event_type']} {c['event_type_prob']:.2f} | impact {c['impact']:.2f}"
+            f" | sentiment {c['sentiment']:+.2f} | relevant {c['is_market_relevant_prob']:.2f}"
+        )
+    else:
+        label = "(not classified yet)"
+    tagged = [f"{a.symbol} {a.relevance_prob:.2f}" for a in r.assets if a.relevance_prob >= 0.5]
+    lines = [f"{when}  [{r.source}]  {label}" + (f" | {', '.join(tagged)}" if tagged else "")]
+    lines.append(f"  {r.headline}" + (f"  (v{r.version_no})" if r.version_no > 1 else ""))
+    cluster = f"  cluster {r.cluster_id}: {r.cluster_size} articles" if r.cluster_size > 1 else ""
+    lines.append(f"  {r.canonical_url}{cluster}")
+    return "\n".join(lines)
+
+
+@app.command()
+def api(
+    host: Annotated[str, typer.Option(help="Bind address; the API has no authentication.")] = (
+        "127.0.0.1"
+    ),
+    port: int = 8000,
+) -> None:
+    """Serve the read-only HTTP API (docs at /docs)."""
+    import uvicorn
+
+    from mnp.outputs.api import create_app
+
+    _setup_logging()
+    uvicorn.run(create_app(make_engine()), host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":
