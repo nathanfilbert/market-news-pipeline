@@ -24,6 +24,8 @@
   poll_seconds: 60
   category: crypto
   reputation: 0.85
+  # WordPress feed paging (?paged=2, 3, ...): `mnp catch-up` can reach ~2 weeks back.
+  options: {page_param: paged, max_pages: 10}
 
 - name: decrypt
   kind: rss
