@@ -8,11 +8,11 @@
 Collect crypto and general market news in near real time, store every raw item untouched,
 classify each article with **Jev** (TypeSafe AI's decision/classification model), and store
 the classifications linked back to the raw data by ID and content hash. Expose the results
-through a CLI and a small read-only HTTP API. A read-only dashboard follows in the v1.1 release
-and filtered alerts in v1.2 (§12).
+through a CLI, a small read-only HTTP API and (v1.1) a read-only dashboard.
 
-**Primary use:** research for crypto trading (and alerting from the v1.2 release), with
-general-market/macro news as context. v1 is **not** a low-latency trading signal; minute-level
+**Primary use:** feeding the owner's crypto trading platform with classified, de-duplicated news
+(updated 2026-09-28), with general-market/macro news as context; the dashboard supports research.
+The platform has its own price data. v1 is **not** a low-latency trading signal; minute-level
 latency is acceptable.
 
 ### Non-goals for v1
@@ -22,7 +22,7 @@ latency is acceptable.
 - Sub-minute latency, streaming infrastructure (Kafka etc.)
 - Web UI: a read-only dashboard is the v1.1 release, see §12
 - Automated trading of any kind
-- Alerting (rules and webhook delivery): deferred to the v1.2 release, see §12
+- Alerting (rules and webhook delivery): not scheduled, see "Ideas" in §12
 
 ## 2. Tech stack (defaults — keep unless there's a concrete reason)
 
@@ -59,7 +59,7 @@ All timestamps are stored as `timestamptz` in UTC.
      │
  classifications + article_assets
      │
- Outputs: CLI · FastAPI  (dashboard: v1.1 release · alert webhooks: v1.2 release)
+ Outputs: CLI · FastAPI · dashboard (v1.1 release)
 ```
 
 - **Stages communicate through Postgres.** A `jobs` table is consumed with `SELECT … FOR UPDATE SKIP LOCKED`. No Redis or Kafka.
@@ -197,7 +197,7 @@ Seed `config/assets.yaml` with the top ~100 crypto assets by market cap, major s
 - **CLI:** `mnp news --since 1h --asset BTC --event-type hack_exploit --min-impact 0.6`
 - **API (FastAPI, read-only):** `GET /articles`, `GET /articles/{id}` (includes versions, classifications and a raw link), `GET /clusters/{id}`, `GET /health` (per-source freshness and last error). Support filters for asset, event_type, domain, time range, and minimum impact/relevance.
 - **Dashboard:** read-only web UI, the v1.1 release (§12).
-- **Alerts:** deferred to the v1.2 release (§12).
+- **Alerts:** not scheduled (§12, Ideas).
 
 ## 8. Repo layout
 
@@ -208,14 +208,15 @@ market-news-pipeline/
   .env.example
   alembic/ …
   config/
-    sources.yaml  assets.yaml  (alerts.yaml: v1.2 release)
+    sources.yaml  assets.yaml
     questions/v1.0.yaml
   src/mnp/
     config.py  db.py  models.py  jobs.py  cli.py  runner.py
     collectors/  base.py  rss.py  aggregator.py
     normalize/   canonical_url.py  text.py  hashing.py  cluster.py
     classify/    base.py  jev.py  fake.py  assets.py  questions.py
-    outputs/     api.py  (dashboard/: v1.1 release · alerts.py: v1.2 release)
+    outputs/     api.py
+    dashboard/   routes.py  queries.py  templates/  static/   (v1.1 release)
   tests/
     fixtures/ (recorded RSS/API payloads, sample Jev responses)
   docs/v1-plan.md
@@ -244,7 +245,7 @@ Build the classifier interface, FakeClassifier, JevClassifier, question-set load
 ✅ Every new article version gets exactly one classification per question-set version. The full Jev response is stored in `results`. A Jev API outage causes retries with backoff, and no data is lost. One manual smoke test runs against the real API on ~20 recent articles, and the results are printed for review.
 
 **M5 — Outputs**
-Build the CLI query and FastAPI endpoints. (Alert rules and webhook delivery moved to the v1.2 release, §12.)
+Build the CLI query and FastAPI endpoints. (Alerting was moved out of M5; now unscheduled, §12 Ideas.)
 ✅ The API returns filtered results. `/health` shows stale sources.
 
 **M6 — Run it**
@@ -260,7 +261,6 @@ Build `mnp run` (all loops plus workers), structured JSON logging, and graceful 
 
 ## 11. Open decisions (defaults in bold; confirm with the owner if unsure)
 - Aggregator: NewsAPI vs **CryptoPanic** vs Finnhub. Choose after checking current terms and latency.
-- Alert channel (v1.2 release): **Discord webhook** vs Telegram.
 - Dashboard stack (v1.1 release): **server-rendered pages (FastAPI + Jinja2 + htmx) with vendored
   CSS and chart libraries** vs a JavaScript single-page app (React/Vite).
 - Hosting: **local machine first**, then a small VPS.
@@ -272,7 +272,7 @@ Release versions are numbered independently of *question set* versions
 
 ### v1.1 release: dashboard
 A simple, modern, **read-only** web dashboard for browsing and visualizing the data. Decided by
-the owner (2026-09-28); alerting moved to v1.2. No editing or configuration from the UI:
+the owner (2026-09-28); alerting was later taken off the roadmap. No editing or configuration from the UI:
 sources, questions and assets stay in `config/`.
 
 - **Overview:** pipeline health (per-source status, last success/error), job backlog, articles
@@ -301,17 +301,40 @@ build step, reads through the same query layer as the API.
   an article can be traced from list → versions → classification (every probability) → raw
   payload; tests cover each page with fixture data.
 
-### v1.2 release: alerting
-Deferred from M5 by the owner (2026-09-27), then from v1.1 to v1.2 (2026-09-28).
+### v1.2 release: embedding-based clustering (proposed)
+Owner decision (2026-09-28): the next focus, because the trading platform needs each real-world
+event to appear once, whichever outlets report it. Trigram headline similarity misses paraphrases
+(e.g. five outlets' Bitget-hack headlines became separate clusters; CoinDesk vs The Block on
+Buterin's 2030 roadmap scored 0.46 < 0.6).
 
-- **Rules** in `config/alerts.yaml`, e.g. `event_type in [hack_exploit, exchange_listing] and impact >= 0.7 and is_promotional < 0.5`. Rules read the classification columns (including `domain`, `urgency`, `is_new_information_prob`) and asset tags from `article_assets`.
-- **Delivery** through a Discord or Telegram webhook (see §11).
-- Alert **once per cluster**, not once per article.
-- ✅ One alert fires per cluster (tested with FakeClassifier). Webhook failures are retried without sending duplicates.
+- **Embeddings:** embed each article version's headline + summary with a small local model
+  (proposed: `BAAI/bge-small-en-v1.5` via `fastembed`, ONNX on CPU, 384 dimensions): no API cost
+  or dependency, text stays local, results are deterministic for a pinned model. Stored in
+  Postgres with `pgvector` (HNSW index, cosine distance); the model name is stored with each
+  vector so the model can be changed and re-run.
+- **Assignment:** nearest neighbours among other sources' current (non-backfill) articles within
+  a time window, anchored on publish time where known. Similarity above a high threshold joins
+  the cluster; below a low threshold starts a new one; in between, Jev answers a yes/no "Do these
+  two articles report the same event?" so borderline pairs don't over-merge distinct events
+  (e.g. two different exchange hacks in one week). Same-source matches stay excluded.
+- **Evaluation first:** a labelled set of article pairs from stored data (known same-event pairs
+  across outlets, and known different-event pairs such as Fed template headlines) sets the
+  thresholds; `mnp` reports precision/recall for trigram vs embeddings.
+- **Rebuild:** clusters are derived data, so a command re-clusters stored articles with the new
+  method (deterministic, idempotent); the trigram module stays for comparison.
+- ✅ On the labelled set, embeddings find clearly more same-event pairs than trigrams without
+  merging distinct same-template events; new articles are embedded and clustered within the
+  normal pipeline latency; re-clustering is repeatable.
+
+### Ideas (not scheduled)
+- **Alerting.** Documented for reference; not planned while the pipeline's main consumer is the
+  trading platform (owner, 2026-09-28). Rules in `config/alerts.yaml` over classification columns
+  and asset tags (e.g. `event_type in [hack_exploit, exchange_listing] and impact >= 0.7 and
+  is_promotional < 0.5`); delivery through a Discord or Telegram webhook; once per cluster, not per
+  article; retried on webhook failure without duplicates.
 
 ### Later
 - GDELT collector (filtered by themes: sanctions, conflict, regulation, central banks)
-- Embedding-based clustering (`pgvector`)
 - Generative model for summaries and amount/date extraction
 - Lower-latency sources (exchange announcement feeds, on-chain alerts, X/Telegram)
 - Price data join for measuring which labels actually predict moves
