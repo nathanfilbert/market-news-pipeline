@@ -8,10 +8,11 @@
 Collect crypto and general market news in near real time, store every raw item untouched,
 classify each article with **Jev** (TypeSafe AI's decision/classification model), and store
 the classifications linked back to the raw data by ID and content hash. Expose the results
-through a CLI, a small read-only HTTP API, and filtered alerts.
+through a CLI and a small read-only HTTP API. Filtered alerts follow in the v1.1 release (§12).
 
-**Primary use:** research and alerting for crypto trading, with general-market/macro news as
-context. v1 is **not** a low-latency trading signal; minute-level latency is acceptable.
+**Primary use:** research for crypto trading (and alerting from the v1.1 release), with
+general-market/macro news as context. v1 is **not** a low-latency trading signal; minute-level
+latency is acceptable.
 
 ### Non-goals for v1
 - GDELT ingestion (planned for v1.5 as another collector)
@@ -19,6 +20,7 @@ context. v1 is **not** a low-latency trading signal; minute-level latency is acc
 - Generative summaries or numeric/date extraction (amounts, unlock dates) — v2
 - Sub-minute latency, streaming infrastructure (Kafka etc.), web UI
 - Automated trading of any kind
+- Alerting (rules and webhook delivery): deferred to the v1.1 release, see §12
 
 ## 2. Tech stack (defaults — keep unless there's a concrete reason)
 
@@ -55,7 +57,7 @@ All timestamps are stored as `timestamptz` in UTC.
      │
  classifications + article_assets
      │
- Outputs: CLI · FastAPI · alert webhooks
+ Outputs: CLI · FastAPI  (alert webhooks: v1.1 release)
 ```
 
 - **Stages communicate through Postgres.** A `jobs` table is consumed with `SELECT … FOR UPDATE SKIP LOCKED`. No Redis or Kafka.
@@ -192,7 +194,7 @@ Seed `config/assets.yaml` with the top ~100 crypto assets by market cap, major s
 
 - **CLI:** `mnp news --since 1h --asset BTC --event-type hack_exploit --min-impact 0.6`
 - **API (FastAPI, read-only):** `GET /articles`, `GET /articles/{id}` (includes versions, classifications and a raw link), `GET /clusters/{id}`, `GET /health` (per-source freshness and last error). Support filters for asset, event_type, domain, time range, and minimum impact/relevance.
-- **Alerts:** rules in `config/alerts.yaml` (e.g. `event_type in [hack_exploit, exchange_listing] and impact >= 0.7 and is_promotional < 0.5`). Deliver through a Discord or Telegram webhook. Alert **once per cluster**, not once per article.
+- **Alerts:** deferred to the v1.1 release (§12).
 
 ## 8. Repo layout
 
@@ -203,14 +205,14 @@ market-news-pipeline/
   .env.example
   alembic/ …
   config/
-    sources.yaml  assets.yaml  alerts.yaml
+    sources.yaml  assets.yaml  (alerts.yaml: v1.1 release)
     questions/v1.0.yaml
   src/mnp/
     config.py  db.py  models.py  jobs.py  cli.py  runner.py
     collectors/  base.py  rss.py  aggregator.py
     normalize/   canonical_url.py  text.py  hashing.py  cluster.py
     classify/    base.py  jev.py  fake.py  assets.py  questions.py
-    outputs/     api.py  alerts.py
+    outputs/     api.py  (alerts.py: v1.1 release)
   tests/
     fixtures/ (recorded RSS/API payloads, sample Jev responses)
   docs/v1-plan.md
@@ -239,8 +241,8 @@ Build the classifier interface, FakeClassifier, JevClassifier, question-set load
 ✅ Every new article version gets exactly one classification per question-set version. The full Jev response is stored in `results`. A Jev API outage causes retries with backoff, and no data is lost. One manual smoke test runs against the real API on ~20 recent articles, and the results are printed for review.
 
 **M5 — Outputs**
-Build the CLI query, FastAPI endpoints, and alert rules with webhook delivery.
-✅ The API returns filtered results. `/health` shows stale sources. One alert fires per cluster (tested with FakeClassifier).
+Build the CLI query and FastAPI endpoints. (Alert rules and webhook delivery moved to the v1.1 release, §12.)
+✅ The API returns filtered results. `/health` shows stale sources.
 
 **M6 — Run it**
 Build `mnp run` (all loops plus workers), structured JSON logging, and graceful shutdown. Update the README with setup and usage.
@@ -255,10 +257,21 @@ Build `mnp run` (all loops plus workers), structured JSON logging, and graceful 
 
 ## 11. Open decisions (defaults in bold; confirm with the owner if unsure)
 - Aggregator: NewsAPI vs **CryptoPanic** vs Finnhub. Choose after checking current terms and latency.
-- Alert channel: **Discord webhook** vs Telegram.
+- Alert channel (v1.1 release): **Discord webhook** vs Telegram.
 - Hosting: **local machine first**, then a small VPS.
 
 ## 12. After v1 (not now)
+
+### v1.1 release: alerting
+Deferred from M5 by the owner (2026-09-27). Not to be confused with *question set* versions
+(`config/questions/v1.1.yaml`), which are numbered independently.
+
+- **Rules** in `config/alerts.yaml`, e.g. `event_type in [hack_exploit, exchange_listing] and impact >= 0.7 and is_promotional < 0.5`. Rules read the classification columns (including `domain`, `urgency`, `is_new_information_prob`) and asset tags from `article_assets`.
+- **Delivery** through a Discord or Telegram webhook (see §11).
+- Alert **once per cluster**, not once per article.
+- ✅ One alert fires per cluster (tested with FakeClassifier). Webhook failures are retried without sending duplicates.
+
+### Later
 - GDELT collector (filtered by themes: sanctions, conflict, regulation, central banks)
 - Embedding-based clustering (`pgvector`)
 - Generative model for summaries and amount/date extraction
