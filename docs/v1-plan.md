@@ -448,6 +448,12 @@ As built (2026-09-28; conflict x oil and sanctions x oil enabled, the other four
   Live: conflict x oil price kept ~38/h of ~47/h (dropped mostly diplomatic updates); LPG and
   kerosene were added after two fuel-tax headlines were dropped. Sources poll every 15 minutes,
   GDELT's batch interval, since the owner's IP is throttled heavily (8 tries for one query).
+- **Why some sources were always blocked** (2026-09-28): an interleaved test (21 requests, 60 s
+  apart) let ~1 in 7 through regardless of query, window or result size; the two "always
+  blocked" sources were unlucky, not rejected. GDELT throttles per IP, sends no Retry-After and
+  holds refusals 10-20 s, so the throttle pause is now randomized (5-10 min) to avoid retrying in
+  step. Durable options: fewer requests, asking GDELT for more capacity, or ingesting GDELT's
+  15-minute bulk files instead of the search API.
 - **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
   any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
   link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the

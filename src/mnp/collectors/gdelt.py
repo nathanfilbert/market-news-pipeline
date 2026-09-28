@@ -14,6 +14,7 @@ them, but no summary. Each article object is stored as received.
 import asyncio
 import hashlib
 import logging
+import random
 import re
 import time
 from collections.abc import Callable, Mapping
@@ -35,8 +36,9 @@ from mnp.config import SourceConfig
 log = logging.getLogger(__name__)
 
 MIN_INTERVAL_SECONDS = 10.0  # GDELT's limit is one request per 5 s; stay well clear of it
-# All GDELT sources wait this long after being throttled. Live testing (2026-09-28) saw 429s
-# persist through 150 s of silence, so the pause is long.
+# All GDELT sources wait at least this long after being throttled, randomly up to twice as long.
+# Live testing (2026-09-28) found per-IP throttling that let ~1 in 7 requests through whatever
+# the query or spacing; GDELT sends no Retry-After, and a fixed rhythm kept retrying in step.
 THROTTLED_PAUSE_SECONDS = 300.0
 MAX_RECORDS = 250  # the API's maximum per request
 # GDELT often takes 20 s or more to answer (measured 2026-09-28), beyond the shared 20 s timeout.
@@ -262,10 +264,10 @@ class GdeltCollector(Collector):
         # Throttling ("Please limit requests to one every 5 seconds") and query errors ("Your
         # search contained a keyword that is too short") can come back as 200 with plain text.
         if response.status_code == 429 or (body is None and _is_throttle_message(response.text)):
-            self.pacer.pause(THROTTLED_PAUSE_SECONDS)
+            pause = THROTTLED_PAUSE_SECONDS * random.uniform(1.0, 2.0)
+            self.pacer.pause(pause)
             raise CollectorError(
-                f"GDELT throttled the request: {response.text[:200]!r}",
-                retry_after=THROTTLED_PAUSE_SECONDS,
+                f"GDELT throttled the request: {response.text[:200]!r}", retry_after=pause
             )
         raise_for_status(response)
         if body is None:

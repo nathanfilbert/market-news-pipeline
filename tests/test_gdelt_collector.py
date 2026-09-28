@@ -211,11 +211,12 @@ async def test_throttling_backs_off_every_gdelt_source(response):
     a = GdeltCollector(GD, client, pacer=shared, now=lambda: NOW)
     with pytest.raises(CollectorError) as exc_info:
         await a.fetch({})
-    assert exc_info.value.retry_after == gdelt.THROTTLED_PAUSE_SECONDS
+    pause = exc_info.value.retry_after
+    assert gdelt.THROTTLED_PAUSE_SECONDS <= pause <= 2 * gdelt.THROTTLED_PAUSE_SECONDS
 
     # Another GDELT source's next request waits out the pause.
     await shared.wait()
-    assert clock.sleeps == [gdelt.THROTTLED_PAUSE_SECONDS]
+    assert clock.sleeps == [pytest.approx(pause)]
 
 
 async def test_pacer_spaces_requests_across_sources():
