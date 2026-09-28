@@ -64,7 +64,7 @@ DEFAULT_TITLE_KEYWORDS = (
     "market", "stock", "shares", "equit*", "nasdaq", "dow jones", "s&p", "price", "invest*",
     "earning*", "profit*", "revenue*", "bankrupt*", "ipo", "merger*", "acqui*", "fund",
     # commodities and crypto
-    "gold", "silver", "copper", "metal", "wheat", "grain", "commodit*", "bitcoin", "crypto*",
+    "gold", "silver", "copper", "metal", "wheat", "grain", "commodit*", "bitcoin", "ethereum", "token", "crypto*",
     # regulators
     "sec", "regulat*",
 )  # fmt: skip
