@@ -1,7 +1,7 @@
 # News sources (docs/v1-plan.md §4). Each URL was fetched and parsed successfully on
 # 2026-09-27 before being added. reputation (0-1) is our prior, used downstream.
 #
-# category: crypto | official | markets | exchange
+# category: crypto | official | markets | exchange | world
 
 # --- Crypto ---
 - name: coindesk
@@ -113,3 +113,51 @@
   category: markets
   reputation: 0.6
   options: {category: general}
+
+# --- GDELT (v1.5) ---
+# GDELT DOC 2.0 article search: https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/
+# Free, no key, one request per 5 seconds: all GDELT sources share one pacer (a request every
+# 10 s, pausing 2 min if throttled). Titles and URLs only, from outlets worldwide; queries use
+# GDELT's GKG themes (https://blog.gdeltproject.org/gdelt-global-knowledge-graph/) and are
+# limited to English-language coverage.
+#
+# Disabled until GDELT's terms of use and attribution requirements are checked (plan §12) and
+# each query's volume has been looked at: try one with
+#   mnp collect --source gdelt_sanctions --once
+- name: gdelt_sanctions
+  kind: gdelt
+  url: https://api.gdeltproject.org/api/v2/doc/doc
+  poll_seconds: 300
+  category: world
+  reputation: 0.5
+  options: {query: "theme:SANCTIONS sourcelang:english"}
+  enabled: false
+
+- name: gdelt_conflict
+  kind: gdelt
+  url: https://api.gdeltproject.org/api/v2/doc/doc
+  poll_seconds: 300
+  category: world
+  reputation: 0.5
+  options: {query: "theme:ARMEDCONFLICT sourcelang:english"}
+  enabled: false
+
+- name: gdelt_regulation
+  kind: gdelt
+  url: https://api.gdeltproject.org/api/v2/doc/doc
+  poll_seconds: 300
+  category: world
+  reputation: 0.5
+  options:
+    query: "(theme:EPU_CATS_REGULATION OR theme:EPU_CATS_FINANCIAL_REGULATION) sourcelang:english"
+  enabled: false
+
+- name: gdelt_central_banks
+  kind: gdelt
+  url: https://api.gdeltproject.org/api/v2/doc/doc
+  poll_seconds: 300
+  category: world
+  reputation: 0.5
+  options:
+    query: "(theme:ECON_CENTRALBANK OR theme:EPU_CATS_MONETARY_POLICY) sourcelang:english"
+  enabled: false

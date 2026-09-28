@@ -419,6 +419,20 @@ sources the RSS and aggregator feeds don't reach.
 - ✅ Fixture-based tests; the collector stays within GDELT's rate limits under continuous
   running; GDELT articles about an event already covered by other sources join that event.
 
+As built (2026-09-28, not yet enabled):
+- **Collector** (`collectors/gdelt.py`, kind `gdelt`): one source per query in
+  `config/sources.yaml` (`gdelt_sanctions`, `gdelt_conflict`, `gdelt_regulation`,
+  `gdelt_central_banks`, GKG themes, English-language coverage, polled every 5 minutes). Each poll
+  reads `ArtList` results oldest first from the checkpoint (`seen_through`, minus 30 minutes of
+  overlap for GDELT's 15-minute indexing), following full pages of 250 up to `max_pages`; a
+  window still unfinished resumes at the next poll. Articles are stored as received; the
+  normalizer takes the title, URL, language and GDELT's first-seen time (no summary).
+- **Rate limit:** all GDELT sources share one pacer, one request every 10 s. A 429 or GDELT's
+  "Please limit requests" text pauses every GDELT source for 2 minutes and backs the source off.
+- **Before enabling:** check GDELT's terms of use and attribution; the theme queries were
+  written from GDELT's documentation without a live test (the dev container can't reach GDELT),
+  so run each once with `mnp collect --source <name> --once` and look at volume and relevance.
+
 ### Later
 - Generative model for summaries and amount/date extraction
 - Other lower-latency sources (on-chain alerts, X/Telegram)

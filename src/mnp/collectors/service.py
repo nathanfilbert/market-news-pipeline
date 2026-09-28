@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from mnp.collectors.base import Collector, CollectorUnavailable, RawPayload
 from mnp.collectors.finnhub import FinnhubCollector
+from mnp.collectors.gdelt import GdeltCollector
 from mnp.collectors.rss import RssCollector
 from mnp.config import Settings, SourceConfig
 from mnp.jobs import NORMALIZE, enqueue
@@ -52,6 +53,8 @@ def make_collector(
             if settings.finnhub_api_key is None:
                 raise CollectorUnavailable("FINNHUB_API_KEY not set")
             return FinnhubCollector(source, client, settings.finnhub_api_key.get_secret_value())
+        case "gdelt":
+            return GdeltCollector(source, client)
     raise CollectorUnavailable(f"no collector for kind {source.kind!r}")
 
 

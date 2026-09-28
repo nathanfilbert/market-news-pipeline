@@ -9,6 +9,7 @@ from xml.sax.saxutils import quoteattr
 
 import feedparser
 
+from mnp.collectors.gdelt import parse_seendate
 from mnp.collectors.rss import ATOM_NS, RDF_NS, RSS1_NS
 from mnp.normalize.text import clean_text
 
@@ -94,6 +95,8 @@ def parse_payload(payload: dict[str, Any]) -> ParsedItem:
             return _parse_xml_item(payload)
         case "finnhub_news":
             return _parse_finnhub_news(payload)
+        case "gdelt_doc":
+            return _parse_gdelt_doc(payload)
         case fmt:
             raise UnparseableItem(f"unknown payload format {fmt!r}")
 
@@ -143,6 +146,46 @@ def _parse_finnhub_news(payload: dict[str, Any]) -> ParsedItem:
         language=None,
         published_at=published_at,
         tags=tuple(t.strip() for t in (item.get("related") or "").split(",") if t.strip()),
+    )
+
+
+# GDELT names languages in English; unlisted ones are kept as named.
+_GDELT_LANGUAGES = {
+    "arabic": "ar",
+    "chinese": "zh",
+    "dutch": "nl",
+    "english": "en",
+    "french": "fr",
+    "german": "de",
+    "hindi": "hi",
+    "indonesian": "id",
+    "italian": "it",
+    "japanese": "ja",
+    "korean": "ko",
+    "polish": "pl",
+    "portuguese": "pt",
+    "russian": "ru",
+    "spanish": "es",
+    "turkish": "tr",
+    "ukrainian": "uk",
+}
+
+
+def _parse_gdelt_doc(payload: dict[str, Any]) -> ParsedItem:
+    item = payload.get("item")
+    if not isinstance(item, dict):
+        raise UnparseableItem("gdelt payload has no item object")
+    language = clean_text(item.get("language"))
+    if language:
+        language = _GDELT_LANGUAGES.get(language.casefold(), language)
+    return ParsedItem(
+        url=(item.get("url") or "").strip() or None,
+        headline=clean_text(item.get("title")),
+        summary=None,  # the DOC API gives titles only
+        body=None,
+        author=None,
+        language=language,
+        published_at=parse_seendate(item.get("seendate")),  # when GDELT first saw it
     )
 
 
