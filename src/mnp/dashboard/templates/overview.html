@@ -16,6 +16,11 @@
     {% if jobs.failed %}<small>{{ jobs.failed }} failed</small>{% endif %}</article>
   {% endfor %}
   <article class="stat"><small>Classified (7 days, {{ question_set }})</small><strong>{{ summary.total }}</strong></article>
+  {% for s in sentiment %}
+  <article class="stat"><small><a href="/ui/sentiment">{{ s.metric.name }}</a></small>
+    <strong>{{ s.reading.value | num('{:.0f}') }}{% if s.reading.label %} <small>{{ s.reading.label }}</small>{% endif %}</strong>
+    <small class="muted">{{ s.reading.observed_at | dt }} · source: <a href="{{ s.metric.attribution_url }}">{{ s.metric.attribution }}</a></small></article>
+  {% endfor %}
 </div>
 
 {% set problems = health.sources | selectattr('status', 'in', ['failing', 'stale', 'never_run']) | list %}

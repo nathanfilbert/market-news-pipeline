@@ -1,7 +1,7 @@
 # News sources (docs/v1-plan.md §4). Each URL was fetched and parsed successfully on
 # 2026-09-27 before being added. reputation (0-1) is our prior, used downstream.
 #
-# category: crypto | official | markets | exchange
+# category: crypto | official | markets | exchange | sentiment
 
 # --- Crypto ---
 - name: coindesk
@@ -85,6 +85,18 @@
   poll_seconds: 120
   category: exchange
   reputation: 1.0
+
+# --- Sentiment (series, not articles: stored in sentiment_readings) ---
+# Crypto Fear & Greed Index, market-wide, one value a day at 00:00 UTC, history from 2018-02.
+# Free and keyless; no US restriction. Terms: credit Alternative.me next to any display of the
+# data (the API and dashboard do). The first poll loads the full history (~3,000 days).
+# https://alternative.me/crypto/fear-and-greed-index/
+- name: crypto_fear_greed
+  kind: fear_greed
+  url: https://api.alternative.me/fng/
+  poll_seconds: 3600
+  category: sentiment
+  reputation: 0.8
 
 # --- Aggregator ---
 # Finnhub market news (news only, no price data): https://finnhub.io/docs/api/market-news.

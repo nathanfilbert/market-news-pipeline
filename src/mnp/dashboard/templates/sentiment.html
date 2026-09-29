@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chart %}
+{% block title %}Sentiment{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>Sentiment</h1>
+  <p>External sentiment series, last {{ days }} days ·
+    {% for d in [30, 90, 365] %}<a href="?days={{ d }}"{% if d == days %} aria-current="page"{% endif %}>{{ d }}d</a>{{ ' · ' if not loop.last }}{% endfor %}</p>
+</hgroup>
+
+{% for s in series %}
+{% set latest = s.readings[0] %}
+<article>
+  <header>
+    <strong>{{ s.metric.name }}</strong>
+    <small class="muted">{{ s.metric.scale }}</small><br>
+    <small>Source: <a href="{{ s.metric.attribution_url }}">{{ s.metric.attribution }}</a></small>
+  </header>
+  <p>Latest: <strong>{{ latest.value | num('{:.0f}') }}</strong>{% if latest.label %} ({{ latest.label }}){% endif %}
+    <small class="muted">for {{ latest.observed_at | dt }}, fetched {{ latest.received_at | ago }}</small></p>
+  {{ chart('sentiment-' ~ s.key, 'line', s.chart) }}
+</article>
+{% else %}
+<p class="muted">No sentiment readings yet. They arrive with the first poll of a sentiment source
+  (see <code>config/sources.yaml</code>), or run <code>mnp catch-up</code> for the history.</p>
+{% endfor %}
+{% endblock %}

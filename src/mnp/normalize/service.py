@@ -1,4 +1,7 @@
-"""The normalize job: raw item -> article (by canonical URL) -> version (by content hash)."""
+"""The normalize job: raw item -> article (by canonical URL) -> version (by content hash).
+
+Sentiment payloads (mnp.sentiment) become sentiment readings instead of articles.
+"""
 
 from dataclasses import dataclass
 from datetime import timedelta
@@ -20,6 +23,7 @@ from mnp.normalize.embeddings import embed_texts, embedding_text, get_embedder
 from mnp.normalize.hashing import content_hash
 from mnp.normalize.item import UnparseableItem, parse_payload
 from mnp.normalize.same_event import SameEventJudge, default_judge, judge_view
+from mnp.sentiment import store_sentiment_reading
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,4 +210,6 @@ async def store_embedding(
 
 
 async def handle_normalize_job(conn: AsyncConnection, payload: dict[str, Any]) -> None:
-    await normalize_raw_item(conn, int(payload["raw_item_id"]))
+    raw_item_id = int(payload["raw_item_id"])
+    if not await store_sentiment_reading(conn, raw_item_id):
+        await normalize_raw_item(conn, raw_item_id)

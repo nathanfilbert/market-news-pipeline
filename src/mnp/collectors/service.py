@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from mnp.collectors.base import Collector, CollectorUnavailable, RawPayload
+from mnp.collectors.fear_greed import FearGreedCollector
 from mnp.collectors.finnhub import FinnhubCollector
 from mnp.collectors.rss import RssCollector
 from mnp.config import Settings, SourceConfig
@@ -52,6 +53,8 @@ def make_collector(
             if settings.finnhub_api_key is None:
                 raise CollectorUnavailable("FINNHUB_API_KEY not set")
             return FinnhubCollector(source, client, settings.finnhub_api_key.get_secret_value())
+        case "fear_greed":
+            return FearGreedCollector(source, client)
     raise CollectorUnavailable(f"no collector for kind {source.kind!r}")
 
 
