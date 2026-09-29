@@ -28,6 +28,7 @@ from mnp.feed.build import enqueue_feed, handle_feed_job
 from mnp.jobs import CLASSIFY, FEED, NORMALIZE, JobStats, run_pending
 from mnp.models import Article, ArticleVersion, RawItem, Source
 from mnp.normalize.service import handle_normalize_job
+from mnp.sentiment import SENTIMENT_KINDS
 
 log = logging.getLogger(__name__)
 
@@ -172,5 +173,6 @@ async def catch_up(
 
     report.feed = await run_pending(engine, FEED, handle_feed_job)
 
-    report.coverage = await coverage(engine, since, [c.name for c in selected])
+    news = [c.name for c in selected if c.kind not in SENTIMENT_KINDS]  # no articles to count
+    report.coverage = await coverage(engine, since, news)
     return report

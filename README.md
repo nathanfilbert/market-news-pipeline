@@ -24,6 +24,9 @@ config/sources.yaml ─► collectors (RSS, Finnhub) ─► raw_items         ap
                           mnp news · read-only API · /v1/feed · /health
 ```
 
+Sentiment sources (the Crypto Fear & Greed Index) are collected the same way, but their normalize
+job stores a reading in `sentiment_readings` instead of an article. See **Sentiment** below.
+
 Stages talk through Postgres: each new raw item queues a normalize job, each new article
 version queues a classify job, and every change to a story queues a feed job. Every stage is
 idempotent, enforced by unique constraints.
@@ -136,6 +139,8 @@ read-only and lets you browse and visualize everything the pipeline has stored:
   confidence, the exact state sent), plus aggregate charts and a comparison between question-set
   versions.
 - **Questions:** each question set, with changes from the previous version highlighted.
+- **Sentiment:** the Crypto Fear & Greed Index over 30, 90 or 365 days (latest value on the
+  Overview too).
 - **Raw items:** payloads exactly as received. **Clusters:** stories covered by several sources.
 
 It uses no external services: its CSS and JavaScript (Pico.css, htmx, Chart.js) are served from
@@ -164,11 +169,21 @@ The API (`uv run mnp api` on its own, or part of `mnp run`) has interactive docs
 | `GET /articles/{id}` | Every version, all classifications with full Jev output, links to raw item and cluster |
 | `GET /clusters/{id}` | All articles covering the same story |
 | `GET /raw/{id}` | A raw item exactly as collected |
+| `GET /sentiment` | Sentiment readings, newest first (`metric`, `asset`, `since`, `until`, `limit`), with each metric's required attribution |
 | `GET /health` | Source freshness, last errors, job backlog |
 | `GET /v1/feed/…` | The trading feed: see [docs/feed-v1.md](docs/feed-v1.md) |
 
 The API is read-only and has no authentication: keep it on localhost. Finnhub's terms also
 forbid redistributing its data.
+
+## Sentiment
+
+The `crypto_fear_greed` source polls [Alternative.me's Crypto Fear & Greed
+Index](https://alternative.me/crypto/fear-and-greed-index/) hourly: one market-wide value a day
+(0 = extreme fear, 100 = extreme greed), free, no key, no US restriction. The first poll loads the
+full daily history back to 2018. Its terms require crediting Alternative.me next to any display
+of the data: the dashboard does, and `GET /sentiment` returns the credit in `metrics`, so keep it
+wherever you show the numbers. Per-coin series can be added to the same table (`asset` set).
 
 ## Configuration
 

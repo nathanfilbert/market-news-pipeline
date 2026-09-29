@@ -31,6 +31,9 @@
       plugins: { legend: { display: spec.datasets.length > 1, position: "bottom" } },
       scales: {},
     };
+    if (kind === "line" && (spec.yMin !== undefined || spec.yMax !== undefined)) {
+      options.scales = { y: { min: spec.yMin, max: spec.yMax } };
+    }
     if (kind === "stacked") options.scales = { x: { stacked: true }, y: { stacked: true, beginAtZero: true } };
     if (kind === "bar" && spec.horizontal) {
       options.indexAxis = "y";

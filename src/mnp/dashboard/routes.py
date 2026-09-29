@@ -31,6 +31,7 @@ from mnp.outputs.queries import (
     parse_time,
     search_articles,
 )
+from mnp.sentiment import METRICS, get_readings
 
 HERE = Path(__file__).parent
 STATIC_DIR = HERE / "static"
@@ -173,7 +174,44 @@ async def overview(request: Request, conn: Conn) -> HTMLResponse:
         high_impact=await search_articles(
             conn, ArticleFilter(since=now - timedelta(hours=48), min_impact=0.6, limit=10)
         ),
+        sentiment=await _latest_sentiment(conn),
     )
+
+
+async def _latest_sentiment(conn: Conn) -> list[dict[str, Any]]:
+    """The latest reading of each market-wide sentiment metric, with its attribution."""
+    latest = []
+    for key, metric in METRICS.items():
+        if readings := await get_readings(conn, metric=key, asset="market", limit=1):
+            latest.append({"key": key, "metric": metric, "reading": readings[0]})
+    return latest
+
+
+@router.get("/sentiment", response_class=HTMLResponse)
+async def sentiment(request: Request, conn: Conn, days: int = 90) -> HTMLResponse:
+    days = max(1, min(days, 500))
+    since = datetime.now(UTC) - timedelta(days=days)
+    series = []
+    for key, metric in METRICS.items():
+        readings = await get_readings(conn, metric=key, since=since, limit=500)
+        if not readings:
+            continue
+        points = list(reversed(readings))  # oldest first for the chart
+        chart = {
+            "labels": [r.observed_at.astimezone(tz.zone()).strftime("%Y-%m-%d") for r in points],
+            "datasets": [
+                {
+                    "label": metric.name,
+                    "data": [r.value for r in points],
+                    "borderWidth": 2,
+                    "pointRadius": 0,
+                }
+            ],
+            "yMin": 0,
+            "yMax": 100,
+        }
+        series.append({"key": key, "metric": metric, "readings": readings, "chart": chart})
+    return render(request, "sentiment.html", series=series, days=days)
 
 
 @router.get("/sources", response_class=HTMLResponse)
