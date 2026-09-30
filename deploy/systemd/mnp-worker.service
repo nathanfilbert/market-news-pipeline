@@ -1,0 +1,20 @@
+# Background pipeline: collectors plus the normalize, classify and feed workers, no HTTP.
+# Installed by deploy/systemd/install.sh, which fills in the @...@ placeholders.
+[Unit]
+Description=Market News Pipeline worker (collectors and job queues)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=@REPO@
+ExecStart=@UV@ run --frozen mnp run --no-api --log-format json
+# If Postgres isn't up yet (e.g. at boot), startup fails; keep retrying.
+Restart=always
+RestartSec=10
+# SIGTERM lets in-flight jobs finish or stay queued; the runner allows them 30s.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

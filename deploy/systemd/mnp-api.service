@@ -1,0 +1,17 @@
+# Read-only HTTP API and dashboard (/ui). Independent of the worker: it only reads the database.
+# Installed by deploy/systemd/install.sh, which fills in the @...@ placeholders.
+[Unit]
+Description=Market News Pipeline API and dashboard
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=@REPO@
+ExecStart=@UV@ run --frozen mnp api --host @HOST@ --port @PORT@
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target
