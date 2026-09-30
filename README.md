@@ -69,7 +69,35 @@ humans), including a health summary every 10 minutes. Ctrl-C or SIGTERM stops it
 in progress either finishes or stays queued, never half-done. A second Ctrl-C forces an
 immediate stop.
 
-To keep it running and save logs:
+`mnp run --no-api` runs only the background pipeline, and `mnp api` only the API and
+dashboard, so the two can run (and restart) separately.
+
+### As systemd services
+
+To keep both running across logouts, crashes and reboots, install them as systemd user services
+(no root needed; they run as you, from this checkout):
+
+```bash
+deploy/systemd/install.sh --port 8000   # installs, enables and starts both
+```
+
+| Unit | Runs | Notes |
+|---|---|---|
+| `mnp-worker` | `mnp run --no-api` | Collectors and the normalize, classify and feed workers. |
+| `mnp-api` | `mnp api` | API and dashboard on `127.0.0.1:<port>`; read-only, so it can restart any time. |
+
+Both restart on failure (including when Postgres isn't up yet at boot). The script also enables
+lingering (`loginctl enable-linger`) so they start at boot rather than at login; if that needs
+root it tells you the `sudo` command. Re-run it after moving the checkout or to change the port.
+
+```bash
+systemctl --user status mnp-worker mnp-api
+journalctl --user -u mnp-worker -f          # JSON lines; add `-o cat | jq` to filter
+systemctl --user restart mnp-worker mnp-api # after `git pull` (run `uv run alembic upgrade head` first)
+systemctl --user disable --now mnp-worker mnp-api   # stop and uninstall
+```
+
+Without systemd, to keep it running and save logs:
 
 ```bash
 nohup uv run mnp run >> mnp.jsonl 2>&1 &
