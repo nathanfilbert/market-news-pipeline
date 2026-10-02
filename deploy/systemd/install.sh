@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Install and start the mnp user services (systemctl --user).
 #
-#   deploy/systemd/install.sh [--port 8000] [--host 127.0.0.1]
+#   deploy/systemd/install.sh [--port 8000] [--host 0.0.0.0]
+#
+# The API listens on all interfaces by default, so the dashboard is reachable from the LAN.
+# It has no authentication; pass --host 127.0.0.1 to keep it local to this machine.
 #
 # Safe to re-run, e.g. after changing the port or moving the checkout.
 set -euo pipefail
 
 port=8000
-host=127.0.0.1
+host=0.0.0.0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --port) port="$2"; shift 2 ;;
@@ -47,6 +50,8 @@ if [[ "$(loginctl show-user "$USER" --property=Linger --value 2>/dev/null)" != "
   fi
 fi
 
-echo "installed; dashboard at http://$host:$port/ui"
+shown_host="$host"
+[[ "$host" == 0.0.0.0 ]] && shown_host="$(hostname -I 2>/dev/null | awk '{print $1}')"
+echo "installed; dashboard at http://${shown_host:-localhost}:$port/ui"
 echo "status: systemctl --user status mnp-worker mnp-api"
 echo "logs:   journalctl --user -u mnp-worker -f"

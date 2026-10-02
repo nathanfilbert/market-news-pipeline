@@ -5,7 +5,8 @@ however many outlets report it. Each change to an event is a new **revision**, a
 log that is never edited. Read it incrementally with a cursor, or ask what the feed looked like
 at any past moment.
 
-The API binds to 127.0.0.1 and has no authentication; interactive docs and the OpenAPI schema
+The API has no authentication. `mnp run` and `mnp api` bind to 127.0.0.1 by default; the
+systemd service binds to 0.0.0.0 so it is reachable on the LAN (see the README). Interactive docs and the OpenAPI schema
 are at `/docs` and `/openapi.json` while `mnp run` (or `mnp api`) is running.
 
 ## Endpoints

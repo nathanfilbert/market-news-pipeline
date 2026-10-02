@@ -84,11 +84,16 @@ deploy/systemd/install.sh --port 8000   # installs, enables and starts both
 | Unit | Runs | Notes |
 |---|---|---|
 | `mnp-worker` | `mnp run --no-api` | Collectors and the normalize, classify and feed workers. |
-| `mnp-api` | `mnp api` | API and dashboard on `127.0.0.1:<port>`; read-only, so it can restart any time. |
+| `mnp-api` | `mnp api` | API and dashboard on `0.0.0.0:<port>` (all interfaces); read-only, so it can restart any time. |
 
 Both restart on failure (including when Postgres isn't up yet at boot). The script also enables
 lingering (`loginctl enable-linger`) so they start at boot rather than at login; if that needs
 root it tells you the `sudo` command. Re-run it after moving the checkout or to change the port.
+
+The service listens on all interfaces, so other machines on your network can open the dashboard
+at `http://<this machine's IP>:<port>/ui`. The API and dashboard have **no authentication**: only
+expose the port on a network you trust, and open it in the firewall if one is running (for
+example `sudo ufw allow 8000/tcp`). Pass `--host 127.0.0.1` to keep it local.
 
 ```bash
 systemctl --user status mnp-worker mnp-api
