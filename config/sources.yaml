@@ -34,6 +34,18 @@
   category: crypto
   reputation: 0.75
 
+# PANews English Newsflash (short breaking items; https://www.panewslab.com/en/rss generator,
+# type=NEWS). Fetched and parsed on 2026-10-02: 100 items covering about 24h. About 1 in 10
+# items is in Chinese despite lang=en and is stored as 'en'. Terms (/en/user-agreement §2.4):
+# non-commercial reuse only, crediting the author, linking the original and stating
+# "Source: PANews"; commercial use or modification needs PANews's permission.
+- name: panews
+  kind: rss
+  url: https://www.panewslab.com/rss.xml?lang=en&type=NEWS
+  poll_seconds: 60
+  category: crypto
+  reputation: 0.65
+
 # --- Official / macro ---
 - name: fed_press
   kind: rss
