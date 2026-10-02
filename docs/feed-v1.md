@@ -105,7 +105,8 @@ ignore fields they don't know. Removing or changing a field's meaning needs `/v2
 ### Attribution
 
 Some sources' terms require a citation wherever their data is used or redistributed. GDELT's
-require citing the GDELT Project with a link to https://www.gdeltproject.org/. An article from
+require citing the GDELT Project with a link to https://www.gdeltproject.org/; PANews's require
+"Source: PANews" with the author and a link to the original. An article from
 such a source carries `attribution: {text, url}` in `articles`, and the event lists every
 citation its articles need in `attributions` (empty when none). Show them wherever you use or
 pass on the event. Events with no such article are unchanged (no new revision).
@@ -146,3 +147,4 @@ before an earlier one.
 
 - **v1, schema_version 1** (2026-09-28): first release.
 - 2026-09-28: added `attributions` on events and `attribution` on articles, for GDELT.
+- 2026-10-02: PANews articles carry an `attribution` too.

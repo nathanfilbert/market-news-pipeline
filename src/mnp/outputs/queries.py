@@ -280,7 +280,7 @@ async def search_articles(
             assets=tags.get(r.c_id, []) if r.c_id is not None else [],
             clustered_at=r.clustered_at,
             cluster_method=r.cluster_method,
-            attribution=attribution_for(r.source_kind),
+            attribution=attribution_for(r.source_kind, r.source),
         )
         for r in rows
     ]
@@ -358,7 +358,7 @@ async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] 
                 "received_at": v.received_at,
                 "content_hash": v.content_hash,
                 "raw_item_id": v.raw_item_id,
-                "attribution": attribution_for(v.source_kind),
+                "attribution": attribution_for(v.source_kind, v.source),
                 "classifications": by_version.get(v.id, []),
             }
             for v in versions
@@ -384,7 +384,7 @@ async def get_raw_item(conn: AsyncConnection, raw_item_id: int) -> dict[str, Any
         "url": row.url,
         "payload_sha256": row.payload_sha256,
         "payload": row.payload,
-        "attribution": attribution_for(row.source_kind),
+        "attribution": attribution_for(row.source_kind, row.source),
     }
 
 

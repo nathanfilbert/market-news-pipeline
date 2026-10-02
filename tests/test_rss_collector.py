@@ -82,3 +82,15 @@ def test_parse_retry_after():
     assert parse_retry_after("Sun, 27 Sep 2026 11:00:00 GMT", now=now) == 0
     assert parse_retry_after("soon") is None
     assert parse_retry_after(None) is None
+
+
+@pytest.mark.parametrize(("skip", "expected"), [(True, ["flash-1", "flash-3"]), (False, None)])
+async def test_skip_cjk_headlines(skip, expected):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=fixture_bytes("rss/mixed_language.xml"))
+
+    source = SOURCE.model_copy(update={"options": {"skip_cjk_headlines": True}} if skip else {})
+    client = make_http_client(Settings(_env_file=None), transport=httpx.MockTransport(handler))
+    payloads, _ = await RssCollector(source, client).fetch({})
+    ids = [p.external_id for p in payloads]
+    assert ids == (expected or ["flash-1", "flash-2", "flash-3"])

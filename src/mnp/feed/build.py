@@ -178,7 +178,7 @@ async def event_snapshot(
     rep = next((m for m in members if m.id == representative_id), members[0])
     published = [m.published_at for m in members if m.published_at]
     classified_at = [c.classified_at for c, _ in classified]
-    attributions = {m.id: a for m in members if (a := attribution_for(m.source_kind))}
+    attributions = {m.id: a for m in members if (a := attribution_for(m.source_kind, m.source))}
     # Only present when a source requires a citation, so other events' revisions are unchanged.
     citations = {"attributions": _unique(attributions.values())} if attributions else {}
     return {
