@@ -16,6 +16,7 @@ from sqlalchemy import func, insert, select, text
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
+from mnp.attribution import attribution_for
 from mnp.config import Settings, get_settings
 from mnp.jobs import FEED, enqueue
 from mnp.models import (
@@ -99,6 +100,7 @@ async def event_snapshot(
                 latest.c.summary,
                 latest.c.published_at,
                 Source.name.label("source"),
+                Source.kind.label("source_kind"),
                 Source.reputation,
             )
             .join(latest, latest.c.article_id == Article.id)
@@ -176,6 +178,9 @@ async def event_snapshot(
     rep = next((m for m in members if m.id == representative_id), members[0])
     published = [m.published_at for m in members if m.published_at]
     classified_at = [c.classified_at for c, _ in classified]
+    attributions = {m.id: a for m in members if (a := attribution_for(m.source_kind, m.source))}
+    # Only present when a source requires a citation, so other events' revisions are unchanged.
+    citations = {"attributions": _unique(attributions.values())} if attributions else {}
     return {
         "schema_version": SCHEMA_VERSION,
         "event_id": cluster_id,
@@ -209,10 +214,20 @@ async def event_snapshot(
                 "published_at": _iso(m.published_at),
                 "received_at": _iso(m.first_seen_at),
                 "classified": m.version_id in classifications,
+                **({"attribution": attributions[m.id]} if m.id in attributions else {}),
             }
             for m in members
         ],
+        **citations,
     }
+
+
+def _unique(items) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for item in items:
+        if item not in out:
+            out.append(item)
+    return out
 
 
 def content_hash(payload: dict[str, Any]) -> str:

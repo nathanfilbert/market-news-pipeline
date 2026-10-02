@@ -92,12 +92,24 @@ pipeline learned after T is visible. The feed only records revisions from when i
     "received_to_classified": 6.7,
     "received_to_available": 7.1
   },
+  "attributions": [                 // citations the event's sources require (see below)
+    {"text": "The GDELT Project", "url": "https://www.gdeltproject.org/"}
+  ],
   "superseded_by": []               // retracted revisions only
 }
 ```
 
 Numbers are rounded to 4 decimal places. Fields may be added within v1; consumers should
 ignore fields they don't know. Removing or changing a field's meaning needs `/v2`.
+
+### Attribution
+
+Some sources' terms require a citation wherever their data is used or redistributed. GDELT's
+require citing the GDELT Project with a link to https://www.gdeltproject.org/; PANews's require
+"Source: PANews" with the author and a link to the original. An article from
+such a source carries `attribution: {text, url}` in `articles`, and the event lists every
+citation its articles need in `attributions` (empty when none). Show them wherever you use or
+pass on the event. Events with no such article are unchanged (no new revision).
 
 ### Retracted events
 
@@ -134,3 +146,5 @@ before an earlier one.
 ## Changelog
 
 - **v1, schema_version 1** (2026-09-28): first release.
+- 2026-09-28: added `attributions` on events and `attribution` on articles, for GDELT.
+- 2026-10-02: PANews articles carry an `attribution` too.
