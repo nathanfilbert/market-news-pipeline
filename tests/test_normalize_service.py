@@ -200,3 +200,18 @@ async def test_unparseable_item_fails_permanently_without_blocking_others(engine
     async with engine.connect() as conn:
         failed = (await conn.execute(select(Job).where(Job.status == "failed"))).one()
     assert "raw item 999 not found" in failed.last_error
+
+
+async def test_items_not_in_the_source_language_are_skipped(engine, pipeline):
+    collect, normalize = pipeline
+    await collect("a", "rss/mixed_language.xml")
+    stats = await normalize()
+
+    assert stats.done == 2  # both jobs succeed; only the English item becomes an article
+    assert await counts(engine) == (1, 1, 1)
+    assert await versions_of(engine, "articles/2") == []
+    async with engine.begin() as conn:
+        raw_ids = (await conn.execute(select(RawItem.id))).scalars().all()
+        outcomes = [await normalize_raw_item(conn, i) for i in raw_ids]
+    assert len(raw_ids) == 2  # the raw item is kept
+    assert sorted(o is None for o in outcomes) == [False, True]

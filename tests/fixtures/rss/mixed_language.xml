@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Mixed Language Newsflash</title><link>https://flash.example.org</link>
+<description>Synthetic fixture: an English feed with one item in Chinese</description>
+<item>
+  <title>Example lending protocol passes $1 trillion in cumulative loans</title>
+  <link>https://flash.example.org/en/articles/1</link>
+  <guid>flash-1</guid>
+  <pubDate>Fri, 02 Oct 2026 00:58:00 GMT</pubDate>
+  <description>The founder said cumulative loan volume passed $1 trillion.</description>
+</item>
+<item>
+  <title>某巨鲸向Example协议存入12,000枚ETH</title>
+  <link>https://flash.example.org/en/articles/2</link>
+  <guid>flash-2</guid>
+  <pubDate>Fri, 02 Oct 2026 01:10:00 GMT</pubDate>
+  <description>链上数据显示，某地址在过去一小时内存入12,000枚ETH。</description>
+</item>
+</channel></rss>

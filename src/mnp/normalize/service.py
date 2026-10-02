@@ -1,8 +1,11 @@
 """The normalize job: raw item -> article (by canonical URL) -> version (by content hash).
 
-Sentiment payloads (mnp.sentiment) become sentiment readings instead of articles.
+Sentiment payloads (mnp.sentiment) become sentiment readings instead of articles. Items not
+in their source's language (mnp.normalize.language) are skipped: the raw item stays, no
+article is made.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -22,8 +25,11 @@ from mnp.normalize.cluster import assign_cluster, assign_cluster_by_embedding
 from mnp.normalize.embeddings import embed_texts, embedding_text, get_embedder
 from mnp.normalize.hashing import content_hash
 from mnp.normalize.item import UnparseableItem, parse_payload
+from mnp.normalize.language import is_off_language
 from mnp.normalize.same_event import SameEventJudge, default_judge, judge_view
 from mnp.sentiment import store_sentiment_reading
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,11 +48,11 @@ async def normalize_raw_item(
     raw_item_id: int,
     settings: Settings | None = None,
     judge: SameEventJudge | None = _DEFAULT,
-) -> NormalizeOutcome:
+) -> NormalizeOutcome | None:
     """Idempotent: running it again for the same raw item writes nothing.
 
     Backfill articles (published long before we first saw them) are stored but not classified,
-    and get a cluster of their own.
+    and get a cluster of their own. Returns None for an item not in its source's language.
     """
     settings = settings or get_settings()
     raw = (
@@ -70,6 +76,11 @@ async def normalize_raw_item(
         parsed = parse_payload(raw.payload)
     except UnparseableItem as exc:
         raise PermanentJobError(str(exc)) from exc
+    if detected := is_off_language(
+        f"{parsed.headline or ''} {parsed.summary or ''}", parsed.language or raw.language
+    ):
+        log.info("skipping raw item %d from %s: in %s", raw_item_id, raw.source_name, detected)
+        return None
 
     ext_id = raw.external_id or ""
     url = parsed.url or raw.url or (ext_id if ext_id.startswith(("http://", "https://")) else None)
