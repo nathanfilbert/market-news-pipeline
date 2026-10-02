@@ -37,6 +37,10 @@ ACCEPT = (
     "application/xml;q=0.9, text/xml;q=0.9, */*;q=0.1"
 )
 
+# Chinese, Japanese and Korean characters. English headlines virtually never carry several.
+_CJK = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]")
+CJK_HEADLINE_MIN_CHARS = 4
+
 _XML_DECL_ENCODING = re.compile(rb"""^<\?xml[^>]*?encoding\s*=\s*["']([A-Za-z0-9._-]+)["']""")
 
 
@@ -196,8 +200,27 @@ def item_payload(item: FeedItem, *, feed_url: str, http: dict[str, Any]) -> RawP
     )
 
 
+def is_cjk_headline(payload: RawPayload) -> bool:
+    """The item's headline is (mostly) Chinese, Japanese or Korean."""
+    from mnp.normalize.item import UnparseableItem, parse_payload  # imports this module
+
+    try:
+        headline = parse_payload(payload.payload).headline or ""
+    except UnparseableItem:
+        return False  # left for normalize to reject with its own error
+    return len(_CJK.findall(headline)) >= CJK_HEADLINE_MIN_CHARS
+
+
 class RssCollector(Collector):
+    """Option `skip_cjk_headlines`: drop items with a Chinese/Japanese/Korean headline, for
+    English feeds that mix some in (PANews). They are not stored at all."""
+
     page_delay = 1.0  # seconds between history pages, to be polite
+
+    def _keep(self, payloads: list[RawPayload]) -> list[RawPayload]:
+        if not self.source.options.get("skip_cjk_headlines"):
+            return payloads
+        return [p for p in payloads if not is_cjk_headline(p)]
 
     async def fetch(self, checkpoint: Mapping[str, Any]) -> tuple[list[RawPayload], dict[str, Any]]:
         headers = {"Accept": ACCEPT}
@@ -221,6 +244,7 @@ class RssCollector(Collector):
             item_payload(item, feed_url=str(response.url), http=http)
             for item in split_feed(response.content)
         ]
+        payloads = self._keep(payloads)
         new_checkpoint = {
             key: value
             for key, value in (("etag", http["etag"]), ("last_modified", http["last_modified"]))
@@ -236,7 +260,7 @@ class RssCollector(Collector):
         """
         param = self.source.options.get("page_param")
         if not param:
-            return await super().fetch_history(since)
+            return await super().fetch_history(since)  # via fetch(), so already filtered
         max_pages = int(self.source.options.get("max_pages", 20))
         seen: set[str] = set()
         payloads: list[RawPayload] = []
@@ -262,4 +286,4 @@ class RssCollector(Collector):
             dates = [p.published_at for p in new if p.published_at]
             if dates and min(dates) < since:
                 break
-        return payloads
+        return self._keep(payloads)

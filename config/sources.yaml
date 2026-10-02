@@ -38,12 +38,14 @@
 # founder posts, on-chain moves and exploits the outlets above skip. Fetched OK from the pipeline
 # machine on 2026-10-02 (100 items, ~24h). Terms (User Agreement §2.4): non-commercial reuse that
 # names the author, links the original and states "Source: PANews" (mnp.attribution adds it).
+# About 1 in 10 items comes in Chinese despite lang=en; skip_cjk_headlines drops those.
 - name: panews
   kind: rss
   url: https://www.panewslab.com/rss.xml?lang=en&type=NEWS
   poll_seconds: 120
   category: crypto
   reputation: 0.7
+  options: {skip_cjk_headlines: true}
 
 # --- Official / macro ---
 - name: fed_press
