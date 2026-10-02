@@ -41,6 +41,11 @@ class EventAsset(BaseModel):
     article_count: int = Field(description="Articles confirming the asset (relevance >= 0.5).")
 
 
+class Attribution(BaseModel):
+    text: str
+    url: str
+
+
 class EventArticle(BaseModel):
     article_id: int
     source: str
@@ -49,6 +54,9 @@ class EventArticle(BaseModel):
     published_at: datetime | None = Field(description="As stated by the publisher.")
     received_at: datetime = Field(description="When the pipeline first fetched it.")
     classified: bool
+    attribution: Attribution | None = Field(
+        None, description="Citation this article's source requires (e.g. GDELT)."
+    )
 
 
 class Latency(BaseModel):
@@ -78,6 +86,11 @@ class EventRevision(BaseModel):
     assets: list[EventAsset] = []
     articles: list[EventArticle] = []
     latency: Latency | None = None
+    attributions: list[Attribution] = Field(
+        [],
+        description="Citations required by the event's sources; show them wherever the event is "
+        "used or redistributed.",
+    )
     # Retracted revisions:
     superseded_by: list[int] = Field(
         [], description="Events that now hold this event's articles (after a re-cluster)."

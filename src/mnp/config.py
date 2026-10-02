@@ -61,7 +61,7 @@ def get_settings() -> Settings:
 
 class SourceConfig(BaseModel):
     name: str
-    kind: Literal["rss", "finnhub", "fear_greed"]
+    kind: Literal["rss", "finnhub", "gdelt", "fear_greed"]
     url: HttpUrl
     poll_seconds: int = Field(default=60, gt=0)
     category: str

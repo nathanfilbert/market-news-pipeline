@@ -419,6 +419,50 @@ sources the RSS and aggregator feeds don't reach.
 - ✅ Fixture-based tests; the collector stays within GDELT's rate limits under continuous
   running; GDELT articles about an event already covered by other sources join that event.
 
+As built (2026-09-28; conflict x oil and sanctions x oil enabled, the other four disabled):
+- **Collector** (`collectors/gdelt.py`, kind `gdelt`): one source per query in
+  `config/sources.yaml` (`gdelt_sanctions`, `gdelt_conflict`, `gdelt_regulation`,
+  `gdelt_central_banks`, GKG themes, English-language coverage, polled every 5 minutes). Each poll
+  reads `ArtList` results oldest first from the checkpoint (`seen_through`, minus 30 minutes of
+  overlap for GDELT's 15-minute indexing), following full pages of 250 up to `max_pages`; a
+  window still unfinished resumes at the next poll. Articles are stored as received; the
+  normalizer takes the title, URL, language and GDELT's first-seen time (no summary).
+- **Rate limit:** all GDELT sources share one pacer, one request every 10 s. A 429 or GDELT's
+  "Please limit requests" text pauses every GDELT source for 5 minutes and backs the source off.
+  Requests get a 60 s read timeout (GDELT took ~21 s to answer in live testing).
+- **Live test** (2026-09-28, from the owner's machine): GDELT mostly answered 429 even after
+  150 s of silence, so throttling is partly per IP and outside our control. `gdelt_conflict`
+  returned 230 English articles from 144 domains for about half an hour of coverage (GDELT's
+  newest articles lag 30-45 minutes; the first poll now looks back 120 minutes), with weak market
+  relevance (travel lists, campus politics), so the owner asked for it to be narrowed. Every
+  query now requires a topic theme plus a market theme (oil price, oil, stock market; for
+  regulation stock market, bankruptcy, debt) and excludes a few spam domains. Measured per hour:
+  conflict ~125 (was ~450), sanctions ~43, regulation ~17 (was ~200), central banks ~85 (still
+  mixed). GDELT rejects long queries ("too short or too long"), so each keeps to ~3 OR'd themes.
+  Each query needed 3-6 tries through the throttling.
+- **Narrowed further** (owner, 2026-09-28): each source now pairs its topic with one specific
+  market theme (conflict x oil price, conflict x stock market, sanctions x oil price, sanctions x
+  currency, central banks x interest rates; regulation unchanged), and the collector drops
+  articles whose title has no market keyword (`DEFAULT_TITLE_KEYWORDS`, overridable per source)
+  before they are stored or classified. The checkpoint still advances past dropped articles.
+  Live: conflict x oil price kept ~38/h of ~47/h (dropped mostly diplomatic updates); LPG and
+  kerosene were added after two fuel-tax headlines were dropped. Sources poll every 15 minutes,
+  GDELT's batch interval, since the owner's IP is throttled heavily (8 tries for one query).
+- **Why some sources were always blocked** (2026-09-28): an interleaved test (21 requests, 60 s
+  apart) let ~1 in 7 through regardless of query, window or result size; the two "always
+  blocked" sources were unlucky, not rejected. GDELT throttles per IP, sends no Retry-After and
+  holds refusals 10-20 s, so the throttle pause is now randomized (5-10 min) to avoid retrying in
+  step. Durable options: fewer requests, asking GDELT for more capacity, or ingesting GDELT's
+  15-minute bulk files instead of the search API.
+- **Terms** (checked 2026-09-28, https://www.gdeltproject.org/about.html#termsofuse): free for
+  any use, redistribution allowed, but any use or redistribution must cite the GDELT Project and
+  link to https://www.gdeltproject.org/. Cited in the README, and every GDELT article carries the
+  citation in the API (`attribution`), the feed (`attribution` per article, `attributions` per
+  event) and the dashboard, so downstream users can pass it on.
+- **Before enabling:** the theme queries were
+  written from GDELT's documentation without a live test (the dev container can't reach GDELT),
+  so run each once with `mnp collect --source <name> --once` and look at volume and relevance.
+
 ### Later
 - Generative model for summaries and amount/date extraction
 - Other lower-latency sources (on-chain alerts, X/Telegram)

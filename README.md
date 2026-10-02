@@ -133,8 +133,8 @@ run while `mnp run` is running.
 
 How far back it can reach depends on the source: feeds only list their latest items, which is
 about 3 days for CoinDesk, Cointelegraph, Decrypt and Finnhub, weeks for the Fed, SEC and CNBC,
-and about 2 weeks for The Block (which supports paging). So a gap from downtime is fully
-recoverable for roughly 2-3 days.
+about 2 weeks for The Block (which supports paging), and up to 3 months for GDELT queries. So a
+gap from downtime is fully recoverable for roughly 2-3 days.
 
 Items published long before they're first seen (more than `BACKFILL_AFTER_DAYS`, default 7)
 are normally treated as stale old news: not classified and hidden from queries
@@ -220,8 +220,17 @@ wherever you show the numbers. Per-coin series can be added to the same table (`
 
 ## Configuration
 
-- **Sources:** `config/sources.yaml`. RSS feeds and Finnhub, each with a poll interval and a
-  reputation. Verify a feed works before adding it.
+- **Sources:** `config/sources.yaml`. RSS feeds, Finnhub and GDELT queries, each with a poll
+  interval and a reputation. Verify a feed works before adding it. GDELT sources (conflict and
+  sanctions paired with oil, stocks or currencies; financial regulation; central banks and
+  interest rates). Only the two oil pairs are enabled. They keep only articles whose headline has
+  a market keyword, poll every 15 minutes, and share one request every 10 seconds, within
+  GDELT's limit of one per 5.
+- **GDELT attribution:** GDELT data is free for any use, but [its terms](https://www.gdeltproject.org/about.html#termsofuse)
+  require any use or redistribution to cite the GDELT Project and link to
+  https://www.gdeltproject.org/. Anything built on this pipeline's GDELT articles must carry that
+  citation too: the API, the feed and the dashboard show it with each GDELT article
+  (`attribution`) and each event that includes one (`attributions`).
 - **Questions:** `config/questions/<version>.yaml`. Never edit a question set in place: copy it
   to a new version, then `uv run mnp reclassify --question-set v1.2 [--since 2026-10-01]` labels
   stored articles with it, side by side with the old labels. Set `QUESTION_SET` to make it the
@@ -247,7 +256,7 @@ uv run pytest                # uses a separate mnp_test database, created automa
 uv run ruff check . && uv run ruff format --check .
 ```
 
-Tests never touch the network: feeds, Finnhub and Jev are mocked with synthetic fixtures in
+Tests never touch the network: feeds, Finnhub, GDELT and Jev are mocked with synthetic fixtures in
 `tests/fixtures/`. CI runs lint, migrations and tests against Postgres, plus a secrets scan, on
 every pull request. Stage files by explicit path; `git add -A` is blocked for Claude Code in
 this repo (`.claude/settings.json`).
