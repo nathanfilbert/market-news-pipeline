@@ -37,8 +37,8 @@
       {%- if a.version_no > 1 %} <span class="badge">v{{ a.version_no }}</span>{% endif -%}
       {%- if a.is_backfill %} <span class="badge status-disabled">backfill</span>{% endif -%}
       {%- if a.cluster_size > 1 %} <a class="badge" href="/ui/clusters/{{ a.cluster_id }}">{{ a.cluster_size }} sources</a>{% endif %}
-      <div>{{ tags(a.assets) }}</div>
     </td>
+    <td class="assets">{{ tags(a.assets) }}</td>
     {%- set c = a.classification -%}
     <td class="nowrap">{% if c %}<small>{{ c.event_type | replace('_', ' ') }}</small>{% else %}<small class="muted">—</small>{% endif %}</td>
     <td>{% if c %}{{ bar(c.impact) }}{% endif %}</td>
@@ -49,7 +49,7 @@
 {% macro article_table(articles) -%}
   <div class="overflow-auto">
   <table class="striped">
-    <thead><tr><th>Seen</th><th>Source</th><th>Headline</th><th>Event</th><th>Impact</th><th>Sentiment</th></tr></thead>
+    <thead><tr><th>Seen</th><th>Source</th><th>Headline</th><th>Assets</th><th>Event</th><th>Impact</th><th>Sentiment</th></tr></thead>
     <tbody>{% for a in articles %}{{ article_row(a) }}{% endfor %}</tbody>
   </table>
   </div>

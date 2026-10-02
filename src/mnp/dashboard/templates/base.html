@@ -17,7 +17,8 @@
       <ul>
         {% set section = request.url.path.split('/')[2] if request.url.path.count('/') > 1 else '' %}
         {% for path, label in [('', 'Overview'), ('sources', 'Sources'), ('articles', 'Articles'),
-                               ('clusters', 'Clusters'), ('classifications', 'Classifications'),
+                               ('clusters', 'Clusters'), ('sentiment', 'Sentiment'),
+                               ('classifications', 'Classifications'),
                                ('questions', 'Questions')] %}
           <li><a href="/ui{{ '/' ~ path if path }}" {% if section == path %}aria-current="page"{% endif %}>{{ label }}</a></li>
         {% endfor %}

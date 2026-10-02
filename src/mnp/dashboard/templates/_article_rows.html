@@ -1,5 +1,12 @@
-{% from "_macros.html" import article_table %}
+{% from "_macros.html" import article_table, chart %}
 {% if error %}<p class="muted"><small>{{ error }}</small></p>{% endif %}
+{% if asset_counts %}
+<article>
+  <header><strong>Articles by asset</strong>
+    <small class="muted">· matching the filters above{% if asset_counts | length > asset_chart.labels | length %}, top {{ asset_chart.labels | length }} of {{ asset_counts | length }} assets{% endif %}; an article about several assets counts for each. Click a bar to filter.</small></header>
+  {{ chart('asset-chart', 'bar', asset_chart, height=48 + 24 * (asset_chart.labels | length)) }}
+</article>
+{% endif %}
 {% if articles %}
   {{ article_table(articles) }}
   {% if articles | length >= filter.limit %}

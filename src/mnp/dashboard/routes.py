@@ -9,6 +9,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import yaml
 from fastapi import APIRouter, HTTPException, Request
@@ -22,6 +23,7 @@ from mnp.dashboard import tz
 from mnp.outputs.api import Conn
 from mnp.outputs.queries import (
     ArticleFilter,
+    asset_counts,
     get_article,
     get_cluster,
     get_raw_item,
@@ -29,6 +31,7 @@ from mnp.outputs.queries import (
     parse_time,
     search_articles,
 )
+from mnp.sentiment import METRICS, get_readings
 
 HERE = Path(__file__).parent
 STATIC_DIR = HERE / "static"
@@ -119,6 +122,20 @@ def bar_chart(pairs: list[tuple[str, int]], horizontal: bool = True) -> dict[str
     }
 
 
+def asset_chart(
+    counts: list[tuple[str, int]], params: dict[str, str], top: int = 20
+) -> dict[str, Any]:
+    """Articles per asset (top `top`); each bar links to the article list filtered to it."""
+    pairs = counts[:top]
+    return {
+        **bar_chart(pairs),
+        "links": [
+            "/ui/articles?" + urlencode(merge(params, asset=symbol, offset=None))
+            for symbol, _ in pairs
+        ],
+    }
+
+
 def histogram_chart(counts: list[int], low: float, high: float) -> dict[str, Any]:
     step = (high - low) / len(counts)
     return {
@@ -157,7 +174,44 @@ async def overview(request: Request, conn: Conn) -> HTMLResponse:
         high_impact=await search_articles(
             conn, ArticleFilter(since=now - timedelta(hours=48), min_impact=0.6, limit=10)
         ),
+        sentiment=await _latest_sentiment(conn),
     )
+
+
+async def _latest_sentiment(conn: Conn) -> list[dict[str, Any]]:
+    """The latest reading of each market-wide sentiment metric, with its attribution."""
+    latest = []
+    for key, metric in METRICS.items():
+        if readings := await get_readings(conn, metric=key, asset="market", limit=1):
+            latest.append({"key": key, "metric": metric, "reading": readings[0]})
+    return latest
+
+
+@router.get("/sentiment", response_class=HTMLResponse)
+async def sentiment(request: Request, conn: Conn, days: int = 90) -> HTMLResponse:
+    days = max(1, min(days, 500))
+    since = datetime.now(UTC) - timedelta(days=days)
+    series = []
+    for key, metric in METRICS.items():
+        readings = await get_readings(conn, metric=key, since=since, limit=500)
+        if not readings:
+            continue
+        points = list(reversed(readings))  # oldest first for the chart
+        chart = {
+            "labels": [r.observed_at.astimezone(tz.zone()).strftime("%Y-%m-%d") for r in points],
+            "datasets": [
+                {
+                    "label": metric.name,
+                    "data": [r.value for r in points],
+                    "borderWidth": 2,
+                    "pointRadius": 0,
+                }
+            ],
+            "yMin": 0,
+            "yMax": 100,
+        }
+        series.append({"key": key, "metric": metric, "readings": readings, "chart": chart})
+    return render(request, "sentiment.html", series=series, days=days)
 
 
 @router.get("/sources", response_class=HTMLResponse)
@@ -223,12 +277,28 @@ async def articles(request: Request, conn: Conn) -> HTMLResponse:
     params = dict(request.query_params)
     f, error = ui_filter(params)
     rows = await search_articles(conn, f)
-    context = {"articles": rows, "filter": f, "params": params, "error": error}
+    counts = await asset_counts(conn, f)
+    context = {
+        "articles": rows,
+        "filter": f,
+        "params": params,
+        "error": error,
+        "asset_counts": counts,
+        "asset_chart": asset_chart(counts, params),
+    }
     if request.headers.get("HX-Request") and request.headers.get("HX-Target") == "article-rows":
         return render(request, "_article_rows.html", **context)
     event_types = list(load_question_set(f.question_set).questions["event_type"]["criteria"])
     sources = [s["name"] for s in (await health(conn))["sources"]]
-    return render(request, "articles.html", event_types=event_types, sources=sources, **context)
+    assets = await dq.enabled_assets(conn)
+    return render(
+        request,
+        "articles.html",
+        event_types=event_types,
+        sources=sources,
+        assets=assets,
+        **context,
+    )
 
 
 @router.get("/articles/{article_id}", response_class=HTMLResponse)

@@ -6,6 +6,7 @@ sources whose terms require a citation (GDELT) carry it in `attribution`.
 """
 
 from collections.abc import AsyncIterator
+from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -27,6 +28,7 @@ from mnp.outputs.queries import (
     parse_time,
     search_articles,
 )
+from mnp.sentiment import METRICS, get_readings
 
 
 class AssetTagOut(BaseModel):
@@ -161,6 +163,30 @@ class RawItemOut(BaseModel):
     payload_sha256: str
     payload: dict[str, Any]
     attribution: AttributionOut | None = None
+
+
+class SentimentReadingOut(BaseModel):
+    metric: str
+    asset: str | None  # None: market-wide
+    observed_at: datetime
+    value: float
+    label: str | None
+    source: str
+    received_at: datetime
+
+
+class SentimentMetricOut(BaseModel):
+    name: str
+    scale: str
+    attribution: str
+    attribution_url: str
+
+
+class SentimentList(BaseModel):
+    count: int
+    # Every metric in `readings`, with the credit its provider requires next to the data.
+    metrics: dict[str, SentimentMetricOut]
+    readings: list[SentimentReadingOut]
 
 
 async def _connection(request: Request) -> AsyncIterator[AsyncConnection]:
@@ -319,6 +345,36 @@ def create_app(engine: AsyncEngine) -> FastAPI:
         if item is None:
             raise HTTPException(404, "raw item not found")
         return RawItemOut(**item)
+
+    @app.get("/sentiment", response_model=SentimentList)
+    async def sentiment(
+        conn: Conn,
+        metric: Annotated[str | None, Query(description="e.g. crypto_fear_greed")] = None,
+        asset: Annotated[
+            str | None, Query(description='Asset symbol, or "market" for market-wide only')
+        ] = None,
+        since: Annotated[str | None, Query(description="e.g. 30d or an ISO datetime")] = None,
+        until: Annotated[str | None, Query(description="e.g. 1d or an ISO datetime")] = None,
+        limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 100,
+    ) -> SentimentList:
+        """External sentiment readings, newest first (limit=1 for the latest)."""
+        readings = await get_readings(
+            conn,
+            metric=metric,
+            asset=asset,
+            since=_time(since, "since"),
+            until=_time(until, "until"),
+            limit=limit,
+        )
+        return SentimentList(
+            count=len(readings),
+            metrics={
+                m: SentimentMetricOut(**asdict(METRICS[m]))
+                for m in dict.fromkeys(r.metric for r in readings)
+                if m in METRICS
+            },
+            readings=[SentimentReadingOut(**asdict(r)) for r in readings],
+        )
 
     @app.get("/health")
     async def health_check(conn: Conn) -> dict[str, Any]:

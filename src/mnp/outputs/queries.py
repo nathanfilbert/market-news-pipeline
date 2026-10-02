@@ -175,9 +175,9 @@ async def _cluster_sizes(conn: AsyncConnection, cluster_ids: Sequence[int]) -> d
     return dict(rows.all())
 
 
-async def search_articles(
-    conn: AsyncConnection, f: ArticleFilter, *, article_ids: Sequence[int] | None = None
-) -> list[ArticleRow]:
+def _filtered_articles(f: ArticleFilter, *, classified: bool = False):
+    """Articles (latest version) matching `f`, unordered and unpaged; with the classification
+    alias `c`. `classified` forces an inner join to the classification."""
     latest = _latest_versions()
     c = Classification.__table__.alias("c")
     stmt = (
@@ -209,14 +209,9 @@ async def search_articles(
                 c.c.classifier == f.classifier,
                 c.c.question_set_version == f.question_set,
             ),
-            isouter=not f.needs_classification,
+            isouter=not (classified or f.needs_classification),
         )
-        .order_by(Article.first_seen_at.desc(), Article.id.desc())
-        .limit(min(max(f.limit, 1), MAX_LIMIT))
-        .offset(max(f.offset, 0))
     )
-    if article_ids is not None:
-        stmt = stmt.where(Article.id.in_(article_ids))
     if not f.include_backfill:
         stmt = stmt.where(Article.is_backfill.is_(False))
     if f.since:
@@ -244,6 +239,20 @@ async def search_articles(
             )
             .exists()
         )
+    return stmt, c
+
+
+async def search_articles(
+    conn: AsyncConnection, f: ArticleFilter, *, article_ids: Sequence[int] | None = None
+) -> list[ArticleRow]:
+    stmt, _ = _filtered_articles(f)
+    stmt = (
+        stmt.order_by(Article.first_seen_at.desc(), Article.id.desc())
+        .limit(min(max(f.limit, 1), MAX_LIMIT))
+        .offset(max(f.offset, 0))
+    )
+    if article_ids is not None:
+        stmt = stmt.where(Article.id.in_(article_ids))
 
     rows = (await conn.execute(stmt)).all()
     tags = await _asset_tags(conn, [r.c_id for r in rows if r.c_id is not None])
@@ -275,6 +284,23 @@ async def search_articles(
         )
         for r in rows
     ]
+
+
+async def asset_counts(conn: AsyncConnection, f: ArticleFilter) -> list[tuple[str, int]]:
+    """Articles matching `f` (ignoring paging) per tagged asset, most first. An article about
+    several assets counts once for each."""
+    matching, c = _filtered_articles(f, classified=True)
+    ids = matching.with_only_columns(c.c.id.label("classification_id")).subquery("matching")
+    rows = await conn.execute(
+        select(Asset.symbol, func.count().label("n"))
+        .select_from(ids)
+        .join(ArticleAsset, ArticleAsset.classification_id == ids.c.classification_id)
+        .join(Asset, Asset.id == ArticleAsset.asset_id)
+        .where(ArticleAsset.relevance_prob >= f.min_asset_relevance)
+        .group_by(Asset.symbol)
+        .order_by(func.count().desc(), Asset.symbol)
+    )
+    return [(r.symbol, r.n) for r in rows]
 
 
 async def get_article(conn: AsyncConnection, article_id: int) -> dict[str, Any] | None:

@@ -267,3 +267,33 @@ class FeedRevision(Base):
     available_at: Mapped[datetime] = mapped_column(Timestamp, index=True)
     content_hash: Mapped[str] = mapped_column(Text)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
+class SentimentReading(Base):
+    """One value of an external sentiment series (mnp.sentiment), e.g. a day of Fear & Greed.
+
+    asset_id NULL means market-wide. A revised value for the same point replaces the row;
+    every value received stays in raw_items.
+    """
+
+    __tablename__ = "sentiment_readings"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id",
+            "metric",
+            "asset_id",
+            "observed_at",
+            postgresql_nulls_not_distinct=True,
+        ),
+        Index("ix_sentiment_readings_metric_observed_at", "metric", "observed_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id"))
+    metric: Mapped[str] = mapped_column(Text)  # e.g. crypto_fear_greed
+    asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id"))
+    observed_at: Mapped[datetime] = mapped_column(Timestamp)  # the time the value is for
+    value: Mapped[float] = mapped_column(Double)  # on the metric's own scale (mnp.sentiment)
+    label: Mapped[str | None] = mapped_column(Text)  # the source's wording, e.g. "Greed"
+    raw_item_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("raw_items.id"))
+    received_at: Mapped[datetime] = mapped_column(Timestamp)  # when we fetched this value

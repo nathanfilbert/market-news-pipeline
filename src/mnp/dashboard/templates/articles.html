@@ -17,7 +17,16 @@
     <select name="domain"><option value="">All</option>
       {% for d in ['crypto', 'equities', 'macro', 'other'] %}<option {{ 'selected' if params.get('domain') == d }}>{{ d }}</option>{% endfor %}
     </select></label>
-  <label>Asset <input name="asset" value="{{ params.get('asset', '') }}" placeholder="BTC"></label>
+  {%- set chosen = params.get('asset', '').strip().upper() %}
+  <label>Asset
+    <select name="asset"><option value="">All</option>
+      {%- if chosen and chosen not in assets | map(attribute='symbol') %}<option selected>{{ chosen }}</option>{% endif %}
+      {%- for kind, group in assets | groupby('kind') %}
+      <optgroup label="{{ kind }}">
+        {%- for a in group %}<option value="{{ a.symbol }}" {{ 'selected' if chosen == a.symbol }}>{{ a.symbol }} · {{ a.name }}</option>{% endfor %}
+      </optgroup>
+      {%- endfor %}
+    </select></label>
   <label>Min impact <input type="number" name="min_impact" min="0" max="1" step="0.1" value="{{ params.get('min_impact', '') }}"></label>
   <label>Min relevance <input type="number" name="min_relevance" min="0" max="1" step="0.1" value="{{ params.get('min_relevance', '') }}"></label>
   <label><input type="checkbox" name="include_backfill" value="true" role="switch" {{ 'checked' if params.get('include_backfill') == 'true' }}> Include backfill</label>
